@@ -1,0 +1,9 @@
+node_modules
+.next
+dist
+build
+**/.turbo
+pnpm-lock.yaml
+.venv
+.expo
+**/*generated*
