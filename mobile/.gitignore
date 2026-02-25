@@ -9,6 +9,9 @@ dist/
 web-build/
 expo-env.d.ts
 
+#uniwind
+uniwind-types.d.ts
+
 # Native
 .kotlin/
 *.orig.*

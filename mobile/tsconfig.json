@@ -15,13 +15,13 @@
         "./modules/*"
       ],
       "@backend/api": [
-        "../../web/convex/_generated/api"
+        "../web/convex/_generated/api"
       ],
       "@backend/dataModel": [
-        "../../web/convex/_generated/dataModel"
+        "../web/convex/_generated/dataModel"
       ],
       "@backend/types": [
-        "../../web/convex/types"
+        "../web/convex/types"
       ],
     }
   },
