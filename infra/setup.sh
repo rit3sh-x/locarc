@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-NGINX_LOCAL_SOURCE="$(dirname "$0")/nginx.http.conf"
+NGINX_LOCAL_SOURCE="$(cd "$(dirname "$0")" && pwd)/nginx.http.conf"
 NGINX_DESTINATION="/etc/nginx/sites-available/locarc"
 NODE_VERSION="22"
 
@@ -17,7 +17,7 @@ sudo apt update && sudo apt upgrade -y
 
 echo ""
 echo "▶ [2/8] Installing system dependencies (nginx, curl, git, ufw, python3)..."
-sudo apt install -y nginx curl git ufw python3 python3-venv python3-pip
+sudo apt install -y nginx curl git ufw python3 python3-venv python3-pip unzip
 
 echo ""
 echo "▶ [3/8] Configuring UFW firewall..."

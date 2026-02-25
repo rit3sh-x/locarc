@@ -1,4 +1,4 @@
-import "dotenv/config";
+import dotenv from "dotenv";
 import { execSync } from "node:child_process";
 
 const KEYS = [
@@ -9,11 +9,15 @@ const KEYS = [
     "COMPUTE_SERVICE_URL",
 ];
 
+dotenv.config();
+dotenv.config({ path: ".env.local", override: true });
+
 for (const key of KEYS) {
     const value = process.env[key];
-    if (!value) throw new Error(`Missing ${key} in .env`);
+    if (!value) continue;
 
-    execSync(`pnpm dlx convex env set ${key} "${value.replace(/"/g, '\\"')}"`, {
-        stdio: "inherit",
-    });
+    execSync(
+        `pnpm dlx convex env set ${key} "${value.replace(/"/g, '\\"')}"`,
+        { stdio: "inherit" }
+    );
 }
