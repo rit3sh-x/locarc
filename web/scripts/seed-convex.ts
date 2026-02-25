@@ -12,12 +12,24 @@ const KEYS = [
 dotenv.config();
 dotenv.config({ path: ".env.local", override: true });
 
+const isProd = process.argv.slice(2).includes("--prod");
+const envFlag = isProd ? "--prod" : "";
+
+console.log(`🚀 Importing secrets to ${isProd ? "PRODUCTION" : "DEVELOPMENT"}...`);
+
 for (const key of KEYS) {
     const value = process.env[key];
-    if (!value) continue;
+    if (!value) {
+        console.warn(`⚠️ Skipping ${key}: Not found in .env files`);
+        continue;
+    }
 
-    execSync(
-        `pnpm dlx convex env set ${key} "${value.replace(/"/g, '\\"')}"`,
-        { stdio: "inherit" }
-    );
+    try {
+        execSync(
+            `pnpm dlx convex env set ${key} "${value.replace(/"/g, '\\"')}" ${envFlag}`,
+            { stdio: "inherit" }
+        );
+    } catch {
+        console.error(`❌ Failed to set ${key}`);
+    }
 }
