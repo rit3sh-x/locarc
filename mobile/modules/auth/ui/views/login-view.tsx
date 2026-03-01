@@ -12,7 +12,7 @@ export const LoginView = () => {
             password: values.password,
             fetchOptions: {
                 onSuccess: () => {
-                    router.replace("/index");
+                    router.replace("/(home)");
                 },
             },
         });

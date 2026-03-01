@@ -12,7 +12,7 @@ export const SignOut = () => {
         setLoading(true);
         await authClient.signOut({
             fetchOptions: {
-                onSuccess: () => router.replace("/login"),
+                onSuccess: () => router.replace("/(auth)/login"),
                 onError: () => setLoading(false),
             },
         });
