@@ -5,6 +5,7 @@
     "scripts": {
         "dev:web": "next dev",
         "dev:convex": "convex dev",
+        "deploy:convex": "convex deploy",
         "dev": "concurrently -k -n WEB,CONVEX -c blue,green \"pnpm dev:web\" \"pnpm dev:convex\"",
         "build": "next build",
         "start": "next start",

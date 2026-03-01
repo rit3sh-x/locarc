@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth-utils";
+import { getUser } from "@/lib/auth-utils";
 import type { Route } from "next";
 
 const AUTH_ROUTE_PREFIXES: Route[] = ["/login", "/sign-up"];
@@ -11,7 +11,7 @@ export async function proxy(request: NextRequest) {
         pathname.startsWith(route)
     );
 
-    const session = await getSession();
+    const session = await getUser();
 
     if (session) {
         const url = request.nextUrl.clone();

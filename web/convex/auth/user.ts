@@ -1,13 +1,14 @@
 import { query } from "../_generated/server";
-import { authComponent, createAuth } from "../betterAuth/auth";
+import { authComponent } from "../betterAuth/auth";
 
-export const getSession = query({
+export const getUser = query({
     args: {},
     handler: async (ctx) => {
-        const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
-        const session = await auth.api.getSession({
-            headers,
-        });
-        return session;
+        try {
+            const user = await authComponent.getAuthUser(ctx);
+            return user;
+        } catch {
+            return null;
+        }
     },
 });

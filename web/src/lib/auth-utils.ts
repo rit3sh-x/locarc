@@ -4,27 +4,27 @@ import { api } from "@backend/api";
 import type { UserRole } from "@/types";
 import { getToken } from "./auth-server";
 
-export const getSession = async () => {
+export const getUser = async () => {
     const authToken = await getToken();
 
     if (!authToken) return null;
 
-    const session = await fetchQuery(
-        api.auth.user.getSession,
+    const user = await fetchQuery(
+        api.auth.user.getUser,
         {},
         { token: authToken }
     );
 
-    if (!session) return null;
+    if (!user) return null;
 
     return {
-        ...session,
+        user,
         authToken,
     };
 };
 
 export const requireAuth = async () => {
-    const session = await getSession();
+    const session = await getUser();
 
     if (!session) {
         redirect("/login");
@@ -34,7 +34,7 @@ export const requireAuth = async () => {
 };
 
 export const requireNoAuth = async () => {
-    const session = await getSession();
+    const session = await getUser();
 
     if (session) {
         redirect("/");
@@ -43,21 +43,21 @@ export const requireNoAuth = async () => {
 
 const requireRole =
     <R extends UserRole>(allowedRole: R) =>
-    async () => {
-        const session = await requireAuth();
+        async () => {
+            const session = await requireAuth();
 
-        if (session.user.role !== allowedRole) {
-            if (session.user.role === "ADMIN") {
-                redirect("/map");
-            } else {
-                redirect("/");
+            if (session.user.role !== allowedRole) {
+                if (session.user.role === "ADMIN") {
+                    redirect("/map");
+                } else {
+                    redirect("/");
+                }
             }
-        }
 
-        return session as typeof session & {
-            user: { role: R };
+            return session as typeof session & {
+                user: { role: R };
+            };
         };
-    };
 
 export const requireAdmin = requireRole("ADMIN");
 export const requireUser = requireRole("USER");
