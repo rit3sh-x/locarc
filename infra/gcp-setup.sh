@@ -40,10 +40,15 @@ gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
   --member="serviceAccount:${SERVICE_ACCOUNT}" \
   --role="roles/storage.admin"
 
-# Grant Service Account User (already done)
+# Grant Service Account User
 gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
   --member="serviceAccount:${SERVICE_ACCOUNT}" \
   --role="roles/iam.serviceAccountUser"
+
+# Grant Service Usage Consumer (required for Cloud Run source deploys)
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+  --member="serviceAccount:${SERVICE_ACCOUNT}" \
+  --role="roles/serviceusage.serviceUsageConsumer"
 
 # Create Workload Identity Pool (already done)
 gcloud iam workload-identity-pools create github-pool \
