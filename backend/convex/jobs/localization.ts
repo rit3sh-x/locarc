@@ -3,14 +3,20 @@ import {
     internalMutation,
     internalQuery,
 } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { internal, components } from "../_generated/api";
+import { nanoid } from "nanoid";
 import { ConvexError, v } from "convex/values";
 import {
     LOCATION_MULTIPLIER,
     DISPATCH_TIMEOUT_MS,
     STALE_BATCH_TTL_MS,
+    DEFAULT_CONTROLLER_LATITUDE,
+    DEFAULT_CONTROLLER_LONGITUDE,
+    SCAN_ID_LENGTH,
 } from "../lib/constants";
-import { hmacSign } from "../lib/utils";
+import { Webhook } from "svix";
+import { PaginationResult } from "convex/server";
+import { Doc } from "../betterAuth/_generated/dataModel";
 
 const computeUrl = process.env.COMPUTE_SERVICE_URL!;
 const convexSiteUrl = process.env.CONVEX_SITE_URL!;
@@ -113,19 +119,19 @@ export const dispatchPendingBatches = internalAction({
         const now = Date.now();
 
         const timedOut = await ctx.runQuery(
-            internal.jobs.localiation.getTimedOutBatches,
+            internal.jobs.localization.getTimedOutBatches,
             { now }
         );
 
         for (const batchId of timedOut) {
-            await ctx.runMutation(internal.jobs.localiation.markBatchFailed, {
+            await ctx.runMutation(internal.jobs.localization.markBatchFailed, {
                 batchId,
             });
             console.warn(`Batch ${batchId} timed out – marked FAILED`);
         }
 
         const batches = await ctx.runQuery(
-            internal.jobs.localiation.getDispatchableBatches
+            internal.jobs.localization.getDispatchableBatches
         );
 
         if (batches.length === 0) return;
@@ -139,7 +145,7 @@ export const dispatchPendingBatches = internalAction({
 
         for (const batch of batches) {
             const payload = await ctx.runQuery(
-                internal.jobs.localiation.getBatchPayload,
+                internal.jobs.localization.getBatchPayload,
                 { batchId: batch._id }
             );
 
@@ -154,14 +160,18 @@ export const dispatchPendingBatches = internalAction({
                     callbackUrl: `${convexSiteUrl}/api/webhook/localization`,
                 });
 
-                const signature = await hmacSign(webhookSecret, body);
+                const wh = new Webhook(webhookSecret);
+                const msgId = `msg_${batch._id}`;
+                const timestamp = new Date();
+                const signature = wh.sign(msgId, timestamp, body);
 
                 const response = await fetch(computeUrl, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "X-Webhook-Secret": webhookSecret,
-                        "X-Signature-256": signature,
+                        "svix-id": msgId,
+                        "svix-timestamp": Math.floor(timestamp.getTime() / 1000).toString(),
+                        "svix-signature": signature,
                     },
                     body,
                 });
@@ -174,7 +184,7 @@ export const dispatchPendingBatches = internalAction({
                 }
 
                 await ctx.runMutation(
-                    internal.jobs.localiation.markDispatched,
+                    internal.jobs.localization.markDispatched,
                     { batchId: batch._id, dispatchedAt: now }
                 );
             } catch (error) {
@@ -229,7 +239,7 @@ export const processWebhookResults = internalMutation({
 
         const oldLocations = await ctx.db
             .query("location")
-            .withIndex("by_admin_id", (q) => q.eq("adminId", batch.adminId))
+            .withIndex("by_job_batch_id", (q) => q.eq("jobBatchId", args.batchId))
             .collect();
         for (const old of oldLocations) {
             await ctx.db.delete(old._id);
@@ -319,7 +329,7 @@ export const cleanupOldBatches = internalAction({
         const cutoff = Date.now() - STALE_BATCH_TTL_MS;
 
         const staleIds = await ctx.runQuery(
-            internal.jobs.localiation.getStaleBatchIds,
+            internal.jobs.localization.getStaleBatchIds,
             { cutoffTimestamp: cutoff }
         );
 
@@ -330,7 +340,7 @@ export const cleanupOldBatches = internalAction({
         for (const batchId of staleIds) {
             try {
                 await ctx.runMutation(
-                    internal.jobs.localiation.deleteBatchData,
+                    internal.jobs.localization.deleteBatchData,
                     { batchId }
                 );
                 cleaned++;
@@ -342,5 +352,115 @@ export const cleanupOldBatches = internalAction({
         console.log(
             `Cleanup: removed ${cleaned}/${staleIds.length} stale batch(es)`
         );
+    },
+});
+
+export const getActiveAdmins = internalQuery({
+    args: {},
+    handler: async (ctx) => {
+        const admins: PaginationResult<Doc<"user">> = await ctx.runQuery(
+            components.betterAuth.adapter.findMany,
+            {
+                model: "user",
+                where: [
+                    { field: "role", operator: "eq", value: "ADMIN" },
+                    { field: "started", operator: "eq", value: true },
+                ],
+                paginationOpts: { cursor: null, numItems: 1000 },
+            }
+        );
+        return admins.page.map((a) => ({ adminId: a._id }));
+    },
+});
+
+export const getEligibleControllers = internalQuery({
+    args: { adminId: v.string() },
+    handler: async (ctx, { adminId }) => {
+        const controllers = await ctx.db
+            .query("controller")
+            .withIndex("by_admin_id", (q) => q.eq("adminId", adminId))
+            .collect();
+
+        return controllers.filter(
+            (c) =>
+                c.latitudeE6 !== DEFAULT_CONTROLLER_LATITUDE * LOCATION_MULTIPLIER ||
+                c.longitudeE6 !== DEFAULT_CONTROLLER_LONGITUDE * LOCATION_MULTIPLIER
+        );
+    },
+});
+
+export const createBatchForAdmin = internalMutation({
+    args: {
+        adminId: v.string(),
+        controllerIds: v.array(v.id("controller")),
+        controllerUserIds: v.array(v.string()),
+    },
+    handler: async (ctx, { adminId, controllerIds, controllerUserIds }) => {
+        const now = Date.now();
+        const scanId = nanoid(SCAN_ID_LENGTH);
+
+        const batchId = await ctx.db.insert("jobBatch", {
+            adminId,
+            scanId,
+            status: "PENDING",
+            batchStartedAt: now,
+            expectedControllerCount: controllerIds.length,
+            receivedControllerCount: 0,
+        });
+
+        for (let i = 0; i < controllerIds.length; i++) {
+            await ctx.db.insert("jobControllerStatus", {
+                jobBatchId: batchId,
+                controllerId: controllerIds[i],
+                userId: controllerUserIds[i],
+                scanId,
+                received: false,
+            });
+        }
+
+        return batchId;
+    },
+});
+
+export const createBatchesForActiveAdmins = internalAction({
+    args: {},
+    handler: async (ctx) => {
+        const activeAdmins = await ctx.runQuery(
+            internal.jobs.localization.getActiveAdmins
+        );
+
+        if (activeAdmins.length === 0) return;
+
+        let created = 0;
+
+        for (const { adminId } of activeAdmins) {
+            const controllers = await ctx.runQuery(
+                internal.jobs.localization.getEligibleControllers,
+                { adminId }
+            );
+
+            if (controllers.length === 0) {
+                console.log(`Admin ${adminId}: no eligible controllers, skipping batch`);
+                continue;
+            }
+
+            try {
+                await ctx.runMutation(
+                    internal.jobs.localization.createBatchForAdmin,
+                    {
+                        adminId,
+                        controllerIds: controllers.map((c) => c._id),
+                        controllerUserIds: controllers.map((c) => c.userId),
+                    }
+                );
+                created++;
+            } catch (error) {
+                console.error(`Failed to create batch for admin ${adminId}:`, error);
+            }
+        }
+
+        if (created > 0) {
+            console.log(`Created ${created} batch(es) for ${activeAdmins.length} active admin(s)`);
+        }
     },
 });

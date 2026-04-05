@@ -17,6 +17,7 @@ import { expo } from "@better-auth/expo";
 import { ROLES, ROLE_VALUES, ac, ROLE_MAP } from "../lib/roles";
 import { APIError } from "better-auth/api";
 import { customOptions } from "./options";
+import { CONTROLLER_EMAIL_SUFFIX } from "../lib/constants";
 
 const siteUrl = process.env.SITE_URL!;
 const mobileScheme = process.env.MOBILE_SCHEME!;
@@ -37,7 +38,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
         database: authComponent.adapter(ctx),
         emailAndPassword: {
             enabled: true,
-            autoSignIn: false,
+            autoSignIn: true,
             requireEmailVerification: false,
         },
         advanced: {
@@ -102,9 +103,17 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
         ],
         hooks: {
             before: createAuthMiddleware(async ({ path, context, body }) => {
+                if (path === "/sign-up/email") {
+                    if (!body.username || typeof body.username !== "string" || body.username.trim() === "") {
+                        throw new APIError("BAD_REQUEST", {
+                            message: "Username is required for signup.",
+                        });
+                    }
+                }
+
                 if (path === "/sign-in/email") {
                     const identifier = body.email as string;
-                    const isEmail = identifier.endsWith("@locarc.internal");
+                    const isEmail = identifier.endsWith(CONTROLLER_EMAIL_SUFFIX);
 
                     if (isEmail) {
                         throw new APIError("FORBIDDEN", {

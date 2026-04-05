@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from 'react'
 import { useForm } from '@tanstack/react-form'
 import {
     Dialog,
@@ -28,36 +29,53 @@ export const ViewControllerModal = ({
     open,
     onOpenChange,
     controller,
-}: ViewControllerModalProps): React.JSX.Element => (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl">
-            <DialogHeader>
-                <DialogTitle>Controller Details</DialogTitle>
-                <DialogDescription>
-                    View the controller profile and radio configuration details.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-4">
-                <FieldDisplay label="Name" value={controller.name} />
-                <FieldDisplay label="Username" value={controller.username} />
-                <FieldDisplay label="Latitude" value={controller.latitude.toFixed(6)} />
-                <FieldDisplay label="Longitude" value={controller.longitude.toFixed(6)} />
-                <FieldDisplay
-                    label="Min Frequency"
-                    value={`${(controller.settings.minFreqHz / 1_000_000).toFixed(2)} MHz`}
-                />
-                <FieldDisplay
-                    label="Max Frequency"
-                    value={`${(controller.settings.maxFreqHz / 1_000_000).toFixed(2)} MHz`}
-                />
-                <FieldDisplay label="Sample Rate" value={`${controller.settings.sampleRate} Hz`} />
-                <FieldDisplay label="VGA Gain" value={`${controller.settings.vgaGain} dB`} />
-                <FieldDisplay label="LNA Gain" value={`${controller.settings.lnaGain} dB`} />
-                <FieldDisplay label="Buffer Size" value={`${controller.settings.bufferSize} KB`} />
-            </div>
-        </DialogContent>
-    </Dialog>
-)
+}: ViewControllerModalProps): React.JSX.Element => {
+    const hasValidCoordinates = controller.latitude !== -1 && controller.longitude !== -1
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>Controller Details</DialogTitle>
+                    <DialogDescription>
+                        View the controller profile and radio configuration details.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-2 gap-4">
+                    <FieldDisplay label="Name" value={controller.name} />
+                    <FieldDisplay label="Username" value={controller.username} />
+                    {hasValidCoordinates && (
+                        <>
+                            <FieldDisplay label="Latitude" value={controller.latitude.toFixed(6)} />
+                            <FieldDisplay
+                                label="Longitude"
+                                value={controller.longitude.toFixed(6)}
+                            />
+                        </>
+                    )}
+                    <FieldDisplay
+                        label="Min Frequency"
+                        value={`${(controller.settings.minFreqHz / 1_000_000).toFixed(2)} MHz`}
+                    />
+                    <FieldDisplay
+                        label="Max Frequency"
+                        value={`${(controller.settings.maxFreqHz / 1_000_000).toFixed(2)} MHz`}
+                    />
+                    <FieldDisplay
+                        label="Sample Rate"
+                        value={`${controller.settings.sampleRate} Hz`}
+                    />
+                    <FieldDisplay label="VGA Gain" value={`${controller.settings.vgaGain} dB`} />
+                    <FieldDisplay label="LNA Gain" value={`${controller.settings.lnaGain} dB`} />
+                    <FieldDisplay
+                        label="Buffer Size"
+                        value={`${controller.settings.bufferSize} KB`}
+                    />
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 const FieldDisplay = ({ label, value }: { label: string; value?: string | number }) => (
     <div className="flex flex-col gap-1">
@@ -361,11 +379,30 @@ export function EditControllerModal({
 
 export type AddControllerFormValues = AddControllerInput
 
+type AddControllerInitialValues = Omit<Partial<AddControllerFormValues>, 'settings'> & {
+    settings?: Partial<AddControllerFormValues['settings']>
+}
+
+const DEFAULT_ADD_CONTROLLER_VALUES: AddControllerFormValues = {
+    name: '',
+    username: '',
+    password: '',
+    settings: {
+        minFreqHz: 1000000,
+        maxFreqHz: 6000000000,
+        sampleRate: 2000000,
+        vgaGain: 0,
+        lnaGain: 0,
+        bufferSize: 1024,
+    },
+}
+
 type AddControllerModalProps = {
     open: boolean
     onOpenChange: (v: boolean) => void
     onSubmit: (data: AddControllerFormValues) => void
     isPending?: boolean
+    initialValues?: AddControllerInitialValues
 }
 
 export function AddControllerModal({
@@ -373,28 +410,32 @@ export function AddControllerModal({
     onOpenChange,
     onSubmit,
     isPending,
+    initialValues,
 }: AddControllerModalProps): React.JSX.Element {
-    const form = useForm({
-        defaultValues: {
-            name: '',
-            username: '',
-            password: '',
-            latitude: 0,
-            longitude: 0,
+    const mergedDefaultValues = useMemo<AddControllerFormValues>(() => {
+        return {
+            ...DEFAULT_ADD_CONTROLLER_VALUES,
+            ...initialValues,
             settings: {
-                minFreqHz: 1000000,
-                maxFreqHz: 6000000000,
-                sampleRate: 2000000,
-                vgaGain: 0,
-                lnaGain: 0,
-                bufferSize: 1024,
+                ...DEFAULT_ADD_CONTROLLER_VALUES.settings,
+                ...initialValues?.settings,
             },
-        },
+        }
+    }, [initialValues])
+
+    const form = useForm({
+        defaultValues: mergedDefaultValues,
         validators: { onSubmit: addControllerSchema },
         onSubmit: async ({ value }) => {
             await onSubmit(value)
         },
     })
+
+    useEffect(() => {
+        if (open) {
+            form.reset(mergedDefaultValues)
+        }
+    }, [form, open, mergedDefaultValues])
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -468,47 +509,6 @@ export function AddControllerModal({
                             )
                         }}
                     </form.Field>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <form.Field name="latitude">
-                            {(f) => {
-                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel>Latitude</FieldLabel>
-                                        <Input
-                                            type="number"
-                                            step="any"
-                                            value={f.state.value}
-                                            onBlur={f.handleBlur}
-                                            onChange={(e) => f.handleChange(toFloat(e))}
-                                            placeholder="Latitude"
-                                        />
-                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
-                                    </Field>
-                                )
-                            }}
-                        </form.Field>
-                        <form.Field name="longitude">
-                            {(f) => {
-                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel>Longitude</FieldLabel>
-                                        <Input
-                                            type="number"
-                                            step="any"
-                                            value={f.state.value}
-                                            onBlur={f.handleBlur}
-                                            onChange={(e) => f.handleChange(toFloat(e))}
-                                            placeholder="Longitude"
-                                        />
-                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
-                                    </Field>
-                                )
-                            }}
-                        </form.Field>
-                    </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <form.Field name="settings.minFreqHz">

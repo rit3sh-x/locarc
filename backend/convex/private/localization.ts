@@ -1,7 +1,11 @@
 import { mutation, query } from "../_generated/server";
 import { requireAccess } from "../lib/utils";
 import { components } from "../_generated/api";
-import { LOCATION_MULTIPLIER } from "../lib/constants";
+import {
+    DEFAULT_CONTROLLER_LATITUDE,
+    DEFAULT_CONTROLLER_LONGITUDE,
+    LOCATION_MULTIPLIER,
+} from "../lib/constants";
 import { Id } from "../_generated/dataModel";
 
 export const toggle = mutation({
@@ -66,15 +70,28 @@ export const stream = query({
         const controllers = await ctx.db
             .query("controller")
             .withIndex("by_admin_id", (q) => q.eq("adminId", admin._id))
+            .filter((q) =>
+                q.or(
+                    q.neq(
+                        q.field("latitudeE6"),
+                        DEFAULT_CONTROLLER_LATITUDE * LOCATION_MULTIPLIER
+                    ),
+                    q.neq(
+                        q.field("longitudeE6"),
+                        DEFAULT_CONTROLLER_LONGITUDE * LOCATION_MULTIPLIER
+                    )
+                )
+            )
             .collect();
 
-        const controllersResult = controllers.map((controller) => ({
-            id: controller._id,
-            coordinate: {
-                longitude: controller.longitudeE6 / LOCATION_MULTIPLIER,
-                latitude: controller.latitudeE6 / LOCATION_MULTIPLIER,
-            },
-        }));
+        const controllersResult = controllers
+            .map((controller) => ({
+                id: controller._id,
+                coordinate: {
+                    longitude: controller.longitudeE6 / LOCATION_MULTIPLIER,
+                    latitude: controller.latitudeE6 / LOCATION_MULTIPLIER,
+                },
+            }));
 
         const locations = await ctx.db
             .query("location")

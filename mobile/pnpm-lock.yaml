@@ -98,9 +98,6 @@ importers:
       '@rn-primitives/tooltip':
         specifier: ^1.2.0
         version: 1.4.0(@rn-primitives/portal@1.4.0(@types/react@19.1.17)(react-native-web@0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(use-sync-external-store@1.6.0(react@19.1.0)))(@types/react@19.1.17)(react-dom@19.1.0(react@19.1.0))(react-native-web@0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
-      '@varlock/expo-integration':
-        specifier: ^0.0.1
-        version: 0.0.1(@babel/core@7.29.0)(varlock@0.7.1)
       babel-plugin-module-resolver:
         specifier: ^5.0.2
         version: 5.0.3
@@ -134,6 +131,9 @@ importers:
       expo-linking:
         specifier: ~8.0.11
         version: 8.0.11(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      expo-location:
+        specifier: ~19.0.8
+        version: 19.0.8(expo@54.0.33)
       expo-network:
         specifier: ~8.0.8
         version: 8.0.8(expo@54.0.33)(react@19.1.0)
@@ -203,9 +203,6 @@ importers:
       uniwind:
         specifier: ^1.3.2
         version: 1.6.1(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(tailwindcss@4.2.2)
-      varlock:
-        specifier: ^0.7.1
-        version: 0.7.1
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -2581,13 +2578,6 @@ packages:
     peerDependencies:
       '@urql/core': ^5.0.0
 
-  '@varlock/expo-integration@0.0.1':
-    resolution: {integrity: sha512-V+VjSaHWPkjyBzta9xCNpjoYR2g0AuqMuopWJ/qQUjXSKa0QSpn1igVfYo2/UNUm4Ca8/VOANUKucoYaDa1xmQ==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      '@babel/core': '>=7'
-      varlock: ^0.7.0
-
   '@xmldom/xmldom@0.8.12':
     resolution: {integrity: sha512-9k/gHF6n/pAi/9tqr3m3aqkuiNosYTurLLUtc7xQ9sxB/wm7WPygCv8GYa6mS0fLJEHhqMC1ATYhz++U/lRHqg==}
     engines: {node: '>=10.0.0'}
@@ -3519,6 +3509,11 @@ packages:
     peerDependencies:
       react: '*'
       react-native: '*'
+
+  expo-location@19.0.8:
+    resolution: {integrity: sha512-H/FI75VuJ1coodJbbMu82pf+Zjess8X8Xkiv9Bv58ZgPKS/2ztjC1YO1/XMcGz7+s9DrbLuMIw22dFuP4HqneA==}
+    peerDependencies:
+      expo: '*'
 
   expo-modules-autolinking@3.0.24:
     resolution: {integrity: sha512-TP+6HTwhL7orDvsz2VzauyQlXJcAWyU3ANsZ7JGL4DQu8XaZv/A41ZchbtAYLfozNA2Ya1Hzmhx65hXryBMjaQ==}
@@ -5653,11 +5648,6 @@ packages:
   validate-npm-package-name@5.0.1:
     resolution: {integrity: sha512-OljLrQ9SQdOUqTaQxqL5dEfZWrXExyyWsozYlAWFawPVNuD83igl7uJD2RTkNMbniIYgt8l81eCJGIdQF7avLQ==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
-
-  varlock@0.7.1:
-    resolution: {integrity: sha512-dPRddQmYWpnuMnICIXUalT0Kb1edFGjz17n18Nq3oJCHbw9HNDGXRhyygkUmL2MusDfk7vVurEZI+nX5vrzsKw==}
-    engines: {bun: '>=1.3.3', node: '>=22'}
-    hasBin: true
 
   vary@1.1.2:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
@@ -8522,11 +8512,6 @@ snapshots:
       '@urql/core': 5.2.0
       wonka: 6.3.6
 
-  '@varlock/expo-integration@0.0.1(@babel/core@7.29.0)(varlock@0.7.1)':
-    dependencies:
-      '@babel/core': 7.29.0
-      varlock: 0.7.1
-
   '@xmldom/xmldom@0.8.12': {}
 
   abort-controller@3.0.0:
@@ -9622,6 +9607,10 @@ snapshots:
     transitivePeerDependencies:
       - expo
       - supports-color
+
+  expo-location@19.0.8(expo@54.0.33):
+    dependencies:
+      expo: 54.0.33(@babel/core@7.29.0)(@expo/metro-runtime@6.1.2)(expo-router@6.0.23)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
 
   expo-modules-autolinking@3.0.24:
     dependencies:
@@ -12040,8 +12029,6 @@ snapshots:
   uuid@7.0.3: {}
 
   validate-npm-package-name@5.0.1: {}
-
-  varlock@0.7.1: {}
 
   vary@1.1.2: {}
 

@@ -10,7 +10,7 @@ export const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
 const statement = {
     user: ["create", "list", "update", "delete", "ban", "impersonate"],
     session: ["list", "terminate"],
-    controller: ["list", "create", "getOne", "update", "delete"],
+    controller: ["list", "create", "getOne", "update", "delete", "location"],
     job: ["get"],
     measurement: ["create"],
     profile: ["update", "get"],
@@ -28,7 +28,7 @@ export const ROLE_MAP = {
         localization: ["toggle", "stream"],
     }),
     [ROLES.USER]: ac.newRole({
-        controller: ["getOne"],
+        controller: ["getOne", "location"],
         job: ["get"],
         measurement: ["create"],
     }),

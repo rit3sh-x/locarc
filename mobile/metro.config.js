@@ -1,6 +1,5 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const { withUniwindConfig } = require('uniwind/metro');
-const { withVarlockMetroConfig } = require('@varlock/expo-integration/metro-config');
 const path = require('path');
 
 const projectRoot = __dirname;
@@ -25,7 +24,7 @@ config.resolver.extraNodeModules = {
 };
 
 module.exports = withUniwindConfig(
-    withVarlockMetroConfig(config),
+    config,
     {
         cssEntryFile: './src/app/globals.css',
         dtsFile: './uniwind-types.d.ts'

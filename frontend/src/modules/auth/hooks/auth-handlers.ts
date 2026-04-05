@@ -20,7 +20,7 @@ export async function loginWithPassword({
             ...fetchOptions,
             onError: ({ error }) => {
                 toast.error(error.message)
-                fetchOptions?.onError?.({ error })  
+                fetchOptions?.onError?.({ error })
             },
         },
     )

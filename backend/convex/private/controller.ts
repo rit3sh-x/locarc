@@ -2,7 +2,12 @@ import { mutation, query } from "../_generated/server";
 import { requireAccess } from "../lib/utils";
 import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { LOCATION_MULTIPLIER } from "../lib/constants";
+import {
+    CONTROLLER_EMAIL_SUFFIX,
+    DEFAULT_CONTROLLER_LATITUDE,
+    DEFAULT_CONTROLLER_LONGITUDE,
+    LOCATION_MULTIPLIER,
+} from "../lib/constants";
 import { hashPassword } from "better-auth/crypto";
 import { components } from "../_generated/api";
 import { Doc, Id } from "../betterAuth/_generated/dataModel";
@@ -13,8 +18,6 @@ export const create = mutation({
         name: v.string(),
         username: v.string(),
         password: v.string(),
-        latitude: v.number(),
-        longitude: v.number(),
         settings: v.object({
             minFreqHz: v.number(),
             maxFreqHz: v.number(),
@@ -29,7 +32,7 @@ export const create = mutation({
             controller: ["create"],
         });
 
-        const { latitude, longitude, name, password, settings, username } =
+        const { name, password, settings, username } =
             input;
 
         if (name.length < 3)
@@ -46,16 +49,6 @@ export const create = mutation({
             throw new ConvexError({
                 code: "BAD_REQUEST",
                 message: "Password must be at least 8 characters",
-            });
-        if (latitude < -90 || latitude > 90)
-            throw new ConvexError({
-                code: "BAD_REQUEST",
-                message: "Latitude must be between -90 and 90",
-            });
-        if (longitude < -180 || longitude > 180)
-            throw new ConvexError({
-                code: "BAD_REQUEST",
-                message: "Longitude must be between -180 and 180",
             });
         if (settings.minFreqHz <= 0)
             throw new ConvexError({
@@ -82,6 +75,16 @@ export const create = mutation({
                 code: "BAD_REQUEST",
                 message: "bufferSize must be positive",
             });
+        if (settings.lnaGain < 0 || settings.lnaGain > 40)
+            throw new ConvexError({
+                code: "BAD_REQUEST",
+                message: "lnaGain must be between 0 and 40",
+            });
+        if (settings.minFreqHz >= settings.maxFreqHz)
+            throw new ConvexError({
+                code: "BAD_REQUEST",
+                message: "minFreqHz must be less than maxFreqHz",
+            });
 
         const user: Doc<"user"> = await ctx.runMutation(
             components.betterAuth.adapter.create,
@@ -89,7 +92,7 @@ export const create = mutation({
                 input: {
                     model: "user",
                     data: {
-                        email: `${username}-${admin.organizationSlug}@locarc.internal`,
+                        email: `${username}-${admin.organizationSlug}${CONTROLLER_EMAIL_SUFFIX}`,
                         emailVerified: true,
                         name,
                         organizationSlug: admin.organizationSlug,
@@ -129,8 +132,8 @@ export const create = mutation({
         const controllerId = await ctx.db.insert("controller", {
             adminId: admin._id,
             userId: user._id,
-            latitudeE6: Math.round(latitude * LOCATION_MULTIPLIER),
-            longitudeE6: Math.round(longitude * LOCATION_MULTIPLIER),
+            latitudeE6: DEFAULT_CONTROLLER_LATITUDE * LOCATION_MULTIPLIER,
+            longitudeE6: DEFAULT_CONTROLLER_LONGITUDE * LOCATION_MULTIPLIER,
             minFreqHz: settings.minFreqHz,
             maxFreqHz: settings.maxFreqHz,
             sampleRate: settings.sampleRate,
@@ -150,8 +153,6 @@ export const update = mutation({
         controllerId: v.id("controller"),
         name: v.optional(v.string()),
         password: v.optional(v.string()),
-        latitude: v.optional(v.number()),
-        longitude: v.optional(v.number()),
         username: v.optional(v.string()),
         settings: v.optional(
             v.object({
@@ -171,8 +172,6 @@ export const update = mutation({
 
         const {
             controllerId,
-            latitude,
-            longitude,
             name,
             password,
             settings,
@@ -193,16 +192,6 @@ export const update = mutation({
             throw new ConvexError({
                 code: "BAD_REQUEST",
                 message: "Password must be at least 8 characters",
-            });
-        if (latitude !== undefined && (latitude < -90 || latitude > 90))
-            throw new ConvexError({
-                code: "BAD_REQUEST",
-                message: "Latitude must be between -90 and 90",
-            });
-        if (longitude !== undefined && (longitude < -180 || longitude > 180))
-            throw new ConvexError({
-                code: "BAD_REQUEST",
-                message: "Longitude must be between -180 and 180",
             });
         if (settings?.minFreqHz !== undefined && settings.minFreqHz <= 0)
             throw new ConvexError({
@@ -232,22 +221,30 @@ export const update = mutation({
                 code: "BAD_REQUEST",
                 message: "bufferSize must be positive",
             });
-
-        const existing = await ctx.db.get(controllerId);
-
-        if (!existing || existing.adminId !== admin._id) {
+        if (
+            settings?.lnaGain !== undefined &&
+            (settings.lnaGain < 0 || settings.lnaGain > 40)
+        )
             throw new ConvexError({
-                code: "NOT_FOUND",
-                message: "Controller not found",
+                code: "BAD_REQUEST",
+                message: "lnaGain must be between 0 and 40",
             });
-        }
+        if (
+            settings?.minFreqHz !== undefined &&
+            settings?.maxFreqHz !== undefined &&
+            settings.minFreqHz >= settings.maxFreqHz
+        )
+            throw new ConvexError({
+                code: "BAD_REQUEST",
+                message: "minFreqHz must be less than maxFreqHz",
+            });
 
         const controller = await ctx.db.get(controllerId);
 
-        if (!controller) {
+        if (!controller || controller.adminId !== admin._id) {
             throw new ConvexError({
                 code: "NOT_FOUND",
-                message: "Controller not found.",
+                message: "Controller not found",
             });
         }
 
@@ -303,12 +300,6 @@ export const update = mutation({
         }
 
         await ctx.db.patch(controllerId, {
-            ...(latitude !== undefined && {
-                latitudeE6: latitude * LOCATION_MULTIPLIER,
-            }),
-            ...(longitude !== undefined && {
-                longitudeE6: longitude * LOCATION_MULTIPLIER,
-            }),
             ...(name !== undefined && { name }),
             ...settings,
             updatedAt: Date.now(),
@@ -330,8 +321,56 @@ export const remove = mutation({
         const existing = await ctx.db.get(controllerId);
 
         if (!existing || existing.adminId !== user._id) {
-            throw new Error("Controller not found");
+            throw new ConvexError({
+                code: "NOT_FOUND",
+                message: "Controller not found",
+            });
         }
+
+        const statuses = await ctx.db
+            .query("jobControllerStatus")
+            .withIndex("by_controller_id", (q) => q.eq("controllerId", controllerId))
+            .collect();
+        for (const status of statuses) {
+            await ctx.db.delete(status._id);
+        }
+
+        const measurements = await ctx.db
+            .query("sdrMeasurement")
+            .withIndex("by_controller_id", (q) => q.eq("controllerId", controllerId))
+            .collect();
+        for (const measurement of measurements) {
+            await ctx.db.delete(measurement._id);
+        }
+
+        await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+            input: {
+                model: "session",
+                where: [
+                    { field: "userId", operator: "eq", value: existing.userId },
+                ],
+            },
+            paginationOpts: { cursor: null, numItems: 1000 },
+        });
+
+        await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+            input: {
+                model: "account",
+                where: [
+                    { field: "userId", operator: "eq", value: existing.userId },
+                ],
+            },
+            paginationOpts: { cursor: null, numItems: 1000 },
+        });
+
+        await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+            input: {
+                model: "user",
+                where: [
+                    { field: "_id", operator: "eq", value: existing.userId },
+                ],
+            },
+        });
 
         await ctx.db.delete(controllerId);
     },

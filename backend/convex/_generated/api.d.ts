@@ -11,7 +11,7 @@
 import type * as auth_user from "../auth/user.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
-import type * as jobs_localiation from "../jobs/localiation.js";
+import type * as jobs_localization from "../jobs/localization.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as lib_utils from "../lib/utils.js";
@@ -31,7 +31,7 @@ declare const fullApi: ApiFromModules<{
   "auth/user": typeof auth_user;
   crons: typeof crons;
   http: typeof http;
-  "jobs/localiation": typeof jobs_localiation;
+  "jobs/localization": typeof jobs_localization;
   "lib/constants": typeof lib_constants;
   "lib/roles": typeof lib_roles;
   "lib/utils": typeof lib_utils;

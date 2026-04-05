@@ -33,6 +33,48 @@ const config = defineConfig({
         port: 3000,
         strictPort: true,
     },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (!id.includes('node_modules')) return undefined
+
+                    if (id.includes('leaflet') || id.includes('react-leaflet')) {
+                        return 'vendor-map'
+                    }
+
+                    if (
+                        id.includes('/react/') ||
+                        id.includes('\\react\\') ||
+                        id.includes('/react-dom/') ||
+                        id.includes('\\react-dom\\') ||
+                        id.includes('/scheduler/') ||
+                        id.includes('\\scheduler\\')
+                    ) {
+                        return 'vendor-react'
+                    }
+
+                    if (id.includes('@tanstack')) {
+                        return 'vendor-tanstack'
+                    }
+
+                    if (id.includes('radix-ui') || id.includes('@radix-ui')) {
+                        return 'vendor-radix'
+                    }
+
+                    if (
+                        id.includes('zod') ||
+                        id.includes('date-fns') ||
+                        id.includes('lucide-react')
+                    ) {
+                        return 'vendor-utils'
+                    }
+
+                    return undefined
+                },
+            },
+        },
+    },
 })
 
 export default config

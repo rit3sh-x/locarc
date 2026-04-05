@@ -1,7 +1,35 @@
 import { query, mutation } from "../_generated/server";
-import { LOCATION_MULTIPLIER } from "../lib/constants";
+import {
+    DEFAULT_CONTROLLER_LATITUDE,
+    DEFAULT_CONTROLLER_LONGITUDE,
+    LOCATION_MULTIPLIER,
+} from "../lib/constants";
 import { requireAccess } from "../lib/utils";
 import { ConvexError, v } from "convex/values";
+
+const LOCATION_UPDATE_RADIUS_METERS = 20;
+
+const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+
+const distanceInMeters = (
+    fromLatitude: number,
+    fromLongitude: number,
+    toLatitude: number,
+    toLongitude: number
+) => {
+    const earthRadiusMeters = 6371000;
+    const dLat = toRadians(toLatitude - fromLatitude);
+    const dLon = toRadians(toLongitude - fromLongitude);
+    const lat1 = toRadians(fromLatitude);
+    const lat2 = toRadians(toLatitude);
+
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return earthRadiusMeters * c;
+};
 
 export const getController = query({
     args: {},
@@ -14,13 +42,6 @@ export const getController = query({
             .query("controller")
             .withIndex("by_user_id", (q) => q.eq("userId", user._id))
             .unique();
-
-        if (!controller) {
-            throw new ConvexError({
-                code: "NOT_FOUND",
-                message: "Controller not found",
-            });
-        }
 
         if (!controller) {
             throw new ConvexError({
@@ -108,6 +129,63 @@ export const getLatestJob = query({
                 submittedAt: controllerStatus.receivedAt,
             },
         };
+    },
+});
+
+export const submitLocation = mutation({
+    args: {
+        longitude: v.number(),
+        latitude: v.number(),
+    },
+    handler: async (ctx, { latitude, longitude }) => {
+        const { user } = await requireAccess(ctx, {
+            controller: ["location"],
+        });
+
+        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            throw new ConvexError({
+                code: "INVALID_INPUT",
+                message: "Latitude or longitude out of range",
+            });
+        }
+
+        const controller = await ctx.db
+            .query("controller")
+            .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+            .unique();
+
+        if (!controller) {
+            throw new ConvexError({
+                code: "NOT_FOUND",
+                message: "No active controller assigned",
+            });
+        }
+
+        const previousLatitude = controller.latitudeE6 / LOCATION_MULTIPLIER;
+        const previousLongitude = controller.longitudeE6 / LOCATION_MULTIPLIER;
+
+        const movedDistanceMeters = distanceInMeters(
+            previousLatitude,
+            previousLongitude,
+            latitude,
+            longitude
+        );
+
+        const isDefaultStoredLocation =
+            previousLatitude === DEFAULT_CONTROLLER_LATITUDE &&
+            previousLongitude === DEFAULT_CONTROLLER_LONGITUDE;
+
+        if (isDefaultStoredLocation || movedDistanceMeters > LOCATION_UPDATE_RADIUS_METERS) {
+            const now = Date.now();
+            const latitudeE6 = Math.round(latitude * LOCATION_MULTIPLIER);
+            const longitudeE6 = Math.round(longitude * LOCATION_MULTIPLIER);
+
+            await ctx.db.patch(controller._id, {
+                latitudeE6,
+                longitudeE6,
+                updatedAt: now,
+            });
+        }
     },
 });
 

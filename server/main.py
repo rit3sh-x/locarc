@@ -1,8 +1,8 @@
-import hashlib
-import hmac as _hmac
 import logging
+import time
 import numpy as np
 import httpx
+from svix.webhooks import Webhook
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
@@ -39,14 +39,6 @@ def bounds_to_corners(bounds, ref_lat: float, ref_lon: float) -> list[BoundPoint
         for x, y in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
         for lat, lon in [xy_to_gps(x, y, ref_lat, ref_lon)]
     ]
-
-def _verify_signature(secret: str, body: bytes, received: str | None) -> bool:
-    if not received:
-        return True
-    expected = _hmac.new(
-        secret.encode(), body, hashlib.sha256
-    ).hexdigest()
-    return _hmac.compare_digest(expected, received)
 
 def _aggregate_power_dbm(samples: list) -> float:
     linear = [10 ** (s.power_dbm / 10) for s in samples]
@@ -106,11 +98,11 @@ def run_localization(payload: JobPayload) -> list[LocationResult]:
 
 async def post_callback(url: str, body: CallbackPayload) -> None:
     raw_body = body.model_dump_json()
-    signature = _hmac.new(
-        settings.webhook_secret.encode(),
-        raw_body.encode(),
-        hashlib.sha256,
-    ).hexdigest()
+
+    wh = Webhook(settings.webhook_secret)
+    msg_id = f"msg_{body.batchId}"
+    timestamp = int(time.time())
+    signature = wh.sign(msg_id, timestamp, raw_body)
 
     async with httpx.AsyncClient(timeout=30) as client:
         try:
@@ -119,8 +111,9 @@ async def post_callback(url: str, body: CallbackPayload) -> None:
                 content=raw_body,
                 headers={
                     "Content-Type": "application/json",
-                    "X-Webhook-Secret": settings.webhook_secret,
-                    "X-Signature-256": signature,
+                    "svix-id": msg_id,
+                    "svix-timestamp": str(timestamp),
+                    "svix-signature": signature,
                 },
             )
             r.raise_for_status()
@@ -140,7 +133,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.convex_site_url],
     allow_methods=["POST"],
-    allow_headers=["Content-Type", "X-Webhook-Secret", "X-Signature-256"],
+    allow_headers=["Content-Type", "svix-id", "svix-timestamp", "svix-signature"],
 )
 
 @app.get("/health")
@@ -151,14 +144,15 @@ async def health():
 async def compute(request: Request, background: BackgroundTasks):
     raw = await request.body()
 
-    if request.headers.get("X-Webhook-Secret") != settings.webhook_secret:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-    if not _verify_signature(
-        settings.webhook_secret, raw,
-        request.headers.get("X-Signature-256"),
-    ):
-        raise HTTPException(status_code=401, detail="Invalid signature")
+    wh = Webhook(settings.webhook_secret)
+    try:
+        wh.verify(raw, {
+            "svix-id": request.headers.get("svix-id", ""),
+            "svix-timestamp": request.headers.get("svix-timestamp", ""),
+            "svix-signature": request.headers.get("svix-signature", ""),
+        })
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
 
     try:
         payload = JobPayload.model_validate_json(raw)

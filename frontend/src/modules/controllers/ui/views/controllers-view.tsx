@@ -34,6 +34,7 @@ export const ControllerView = (): React.JSX.Element => {
     const [viewModalOpen, setViewModalOpen] = useState(false)
     const [editModalOpen, setEditModalOpen] = useState(false)
     const [addModalOpen, setAddModalOpen] = useState(false)
+    const [addPrefill, setAddPrefill] = useState<Partial<AddControllerFormValues> | null>(null)
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
     const { addController, isPending: isAdding } = useAddController()
@@ -55,9 +56,27 @@ export const ControllerView = (): React.JSX.Element => {
         setDeleteDialogOpen(true)
     }
 
+    const handleDuplicate = (controller: Controller) => {
+        setAddPrefill({
+            name: '',
+            username: '',
+            password: '',
+            settings: {
+                minFreqHz: controller.settings.minFreqHz,
+                maxFreqHz: controller.settings.maxFreqHz,
+                sampleRate: controller.settings.sampleRate,
+                vgaGain: controller.settings.vgaGain,
+                lnaGain: controller.settings.lnaGain,
+                bufferSize: controller.settings.bufferSize,
+            },
+        })
+        setAddModalOpen(true)
+    }
+
     const handleAddSubmit = async (data: AddControllerFormValues) => {
         await addController(data)
         setAddModalOpen(false)
+        setAddPrefill(null)
     }
 
     const handleEditSubmit = async (data: EditControllerFormValues) => {
@@ -83,7 +102,13 @@ export const ControllerView = (): React.JSX.Element => {
                 <div className="grid grid-cols-1 lg:grid-cols-6 xl:grid-cols-8 gap-y-6 gap-x-12 h-full">
                     <div className="lg:col-span-2 xl:col-span-2">
                         <div className="sticky top-0 space-y-4">
-                            <Button onClick={() => setAddModalOpen(true)} className="w-full">
+                            <Button
+                                onClick={() => {
+                                    setAddPrefill(null)
+                                    setAddModalOpen(true)
+                                }}
+                                className="w-full"
+                            >
                                 <Plus className="mr-2 h-4 w-4" />
                                 Add Controller
                             </Button>
@@ -96,6 +121,7 @@ export const ControllerView = (): React.JSX.Element => {
                             <ControllerList
                                 onView={handleView}
                                 onEdit={handleEdit}
+                                onDuplicate={handleDuplicate}
                                 onDelete={handleDelete}
                             />
                         </Suspense>
@@ -125,6 +151,7 @@ export const ControllerView = (): React.JSX.Element => {
                 onOpenChange={setAddModalOpen}
                 onSubmit={handleAddSubmit}
                 isPending={isAdding}
+                initialValues={addPrefill ?? undefined}
             />
 
             <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

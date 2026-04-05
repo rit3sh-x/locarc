@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { Copy, MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ interface ControllerCardProps {
     controller: Controller
     onView?: (controller: Controller) => void
     onEdit?: (controller: Controller) => void
+    onDuplicate?: (controller: Controller) => void
     onDelete?: (controller: Controller) => void
 }
 
@@ -23,6 +24,7 @@ export const ControllerCard = ({
     controller,
     onView,
     onEdit,
+    onDuplicate,
     onDelete,
 }: ControllerCardProps): React.JSX.Element => {
     const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -42,7 +44,7 @@ export const ControllerCard = ({
                 <h3 className="font-semibold text-sm">{controller.name}</h3>
 
                 <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[10px] uppercase">
+                    <Badge variant="outline" className="text-xs">
                         Controller
                     </Badge>
 
@@ -62,6 +64,16 @@ export const ControllerCard = ({
                             >
                                 <Pencil className="mr-2 h-4 w-4" />
                                 Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    onDuplicate?.(controller)
+                                    setIsMenuOpen(false)
+                                }}
+                            >
+                                <Copy className="mr-2 h-4 w-4" />
+                                Duplicate
                             </DropdownMenuItem>
                             <DropdownMenuItem
                                 onClick={(e) => {

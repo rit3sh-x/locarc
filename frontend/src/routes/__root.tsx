@@ -11,10 +11,10 @@ export const Route = createRootRoute({
 })
 
 function Root() {
-    const { isLoading } = useAuthRedirect();
+    const { isLoading } = useAuthRedirect()
 
     if (isLoading) {
-        return <div className="h-dvh bg-background" />;
+        return <div className="h-dvh bg-background" />
     }
 
     return (

@@ -3,7 +3,7 @@ import { authComponent, createAuth } from "./betterAuth/auth";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
-import { hmacSign, timingSafeEqual } from "./lib/utils";
+import { Webhook } from "svix";
 
 const http = httpRouter();
 
@@ -22,38 +22,22 @@ http.route({
             );
         }
 
-        const receivedSecret = request.headers.get("X-Webhook-Secret");
-        if (!receivedSecret || receivedSecret !== webhookSecret) {
-            return new Response(JSON.stringify({ error: "Unauthorized" }), {
-                status: 401,
-                headers: { "Content-Type": "application/json" },
-            });
-        }
-
-        const signature = request.headers.get("X-Signature-256");
         const rawBody = await request.text();
 
-        if (signature) {
-            const expectedSig = await hmacSign(webhookSecret, rawBody);
-            if (!timingSafeEqual(signature, expectedSig)) {
-                return new Response(
-                    JSON.stringify({ error: "Invalid signature" }),
-                    {
-                        status: 401,
-                        headers: { "Content-Type": "application/json" },
-                    }
-                );
-            }
-        }
+        const wh = new Webhook(webhookSecret);
 
         let body: unknown;
         try {
-            body = JSON.parse(rawBody);
-        } catch {
-            return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-                status: 400,
-                headers: { "Content-Type": "application/json" },
+            body = wh.verify(rawBody, {
+                "svix-id": request.headers.get("svix-id") ?? "",
+                "svix-timestamp": request.headers.get("svix-timestamp") ?? "",
+                "svix-signature": request.headers.get("svix-signature") ?? "",
             });
+        } catch {
+            return new Response(
+                JSON.stringify({ error: "Invalid webhook signature" }),
+                { status: 401, headers: { "Content-Type": "application/json" } }
+            );
         }
 
         const validationError = validateWebhookPayload(body);
@@ -68,7 +52,7 @@ http.route({
 
         try {
             await ctx.runMutation(
-                internal.jobs.localiation.processWebhookResults,
+                internal.jobs.localization.processWebhookResults,
                 {
                     batchId: batchId as Id<"jobBatch">,
                     scanId,

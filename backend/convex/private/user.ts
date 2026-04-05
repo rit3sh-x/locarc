@@ -1,4 +1,3 @@
-import { components } from "../_generated/api";
 import { query, mutation } from "../_generated/server";
 import { authComponent, createAuth } from "../betterAuth/auth";
 import { requireAccess } from "../lib/utils";
@@ -33,32 +32,13 @@ export const updateProfile = mutation({
     args: {
         name: v.optional(v.string()),
         username: v.optional(v.string()),
-        organizationSlug: v.optional(v.string()),
     },
     handler: async (ctx, input) => {
-        const { user } = await requireAccess(ctx, {
+        await requireAccess(ctx, {
             profile: ["update"],
         });
 
-        const currentOrg = user.organizationSlug;
-        const { name, username, organizationSlug: newOrgSlug } = input;
-
-        if (newOrgSlug && newOrgSlug !== currentOrg) {
-            await ctx.runMutation(components.betterAuth.adapter.updateMany, {
-                input: {
-                    model: "user",
-                    update: { organizationSlug: newOrgSlug },
-                    where: [
-                        {
-                            field: "organizationSlug",
-                            operator: "eq",
-                            value: currentOrg,
-                        },
-                    ],
-                },
-                paginationOpts: { cursor: null, numItems: 1000 },
-            });
-        }
+        const { name, username } = input;
 
         const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
 

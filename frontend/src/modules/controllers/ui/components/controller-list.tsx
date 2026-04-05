@@ -8,12 +8,14 @@ import type { Controller } from '../../types'
 interface ControllerListProps {
     onView?: (controller: Controller) => void
     onEdit?: (controller: Controller) => void
+    onDuplicate?: (controller: Controller) => void
     onDelete?: (controller: Controller) => void
 }
 
 export const ControllerList = ({
     onView,
     onEdit,
+    onDuplicate,
     onDelete,
 }: ControllerListProps): React.JSX.Element => {
     const { results, status, loadMore } = useGetControllers()
@@ -33,6 +35,7 @@ export const ControllerList = ({
                         controller={controller}
                         onView={onView}
                         onEdit={onEdit}
+                        onDuplicate={onDuplicate}
                         onDelete={onDelete}
                     />
                 ))}

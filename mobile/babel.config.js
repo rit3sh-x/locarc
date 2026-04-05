@@ -16,7 +16,6 @@ module.exports = function (api) {
           },
         },
       ],
-      require('@varlock/expo-integration/babel-plugin'),
     ],
   };
 };

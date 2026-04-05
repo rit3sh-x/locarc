@@ -7,11 +7,11 @@ import { NuqsAdapter } from 'nuqs/adapters/react'
 import { ConvexReactClient } from 'convex/react'
 import { authClient } from '@/lib/auth-client'
 import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react'
-import type { AuthClient } from '@convex-dev/better-auth/react';
+import type { AuthClient } from '@convex-dev/better-auth/react'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ENV } from 'varlock/env'
-import "leaflet/dist/leaflet.css"
-import "./styles.css"
+import 'leaflet/dist/leaflet.css'
+import './styles.css'
 
 import { AuthenticationProvider } from '@/modules/auth/context/auth-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'

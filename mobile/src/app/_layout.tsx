@@ -13,9 +13,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { SystemBars } from 'react-native-edge-to-edge'
 import { cn } from '@/lib/utils'
 import './globals.css'
-import { ENV } from 'varlock/env'
 
-const convex = new ConvexReactClient(ENV.EXPO_PUBLIC_CONVEX_URL, {
+const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
     expectAuth: true,
     unsavedChangesWarning: false,
 })

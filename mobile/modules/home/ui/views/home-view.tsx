@@ -1,90 +1,49 @@
-import { ActivityIndicator, View } from 'react-native'
+import { ScrollView, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from '@/components/ui/text'
 import { SignOut } from '../components/sign-out'
+import { StatusIndicator } from '../components/status-indicator'
+import { ConnectionCard } from '../components/connection-card'
+import { RfSettingsCard } from '../components/rf-settings-card'
+import { LocationCard } from '../components/location-card'
 import { useHackrf } from '../../hooks/use-hackrf'
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-    idle: {
-        label: 'Idle',
-        color: 'text-muted-foreground',
-        bg: 'bg-muted',
-    },
-    waiting: {
-        label: 'Waiting for Job',
-        color: 'text-yellow-600',
-        bg: 'bg-yellow-500/10',
-    },
-    scanning: {
-        label: 'Scanning',
-        color: 'text-blue-500',
-        bg: 'bg-blue-500/10',
-    },
-    submitting: {
-        label: 'Submitting',
-        color: 'text-indigo-500',
-        bg: 'bg-indigo-500/10',
-    },
-    done: {
-        label: 'Done',
-        color: 'text-green-500',
-        bg: 'bg-green-500/10',
-    },
-    error: {
-        label: 'Error',
-        color: 'text-red-500',
-        bg: 'bg-red-500/10',
-    },
-}
+import { useLocation } from '../../hooks/use-location'
 
 export const HomeView = () => {
-    const { status, error, lastJobId } = useHackrf()
+    const { status, error, lastJobId, controller } = useHackrf()
+    useLocation()
     const insets = useSafeAreaInsets()
 
-    const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.idle
-    const isActive = status === 'scanning' || status === 'submitting'
+    const isConnected = controller !== undefined
 
     return (
         <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
-            <View className="absolute right-4 z-10" style={{ top: insets.top + 16 }}>
+            <View className="flex-row items-center justify-between px-5 py-3">
+                <Text className="text-foreground text-lg font-semibold" numberOfLines={1}>
+                    {controller?.name ?? 'Loading...'}
+                </Text>
                 <SignOut />
             </View>
-            <View
-                className="flex-1 px-5 pb-6 items-center justify-center gap-6"
-                style={{ paddingBottom: insets.bottom + 24 }}
+
+            <ScrollView
+                className="flex-1 px-5"
+                contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+                showsVerticalScrollIndicator={false}
             >
-                <View className={`items-center justify-center rounded-full ${config.bg} h-32 w-32`}>
-                    {isActive ? (
-                        <ActivityIndicator size="large" color="#3b82f6" />
-                    ) : (
-                        <View
-                            className={`h-5 w-5 rounded-full ${
-                                status === 'done'
-                                    ? 'bg-green-500'
-                                    : status === 'error'
-                                      ? 'bg-red-500'
-                                      : 'bg-muted-foreground'
-                            }`}
-                        />
-                    )}
-                </View>
+                <StatusIndicator status={status} error={error} lastJobId={lastJobId} />
 
-                <Text className={`text-2xl font-bold tracking-tight ${config.color}`}>
-                    {config.label}
-                </Text>
+                <ConnectionCard
+                    status={status}
+                    isConnected={isConnected}
+                    started={controller?.started ?? false}
+                />
 
-                {error && (
-                    <View className="bg-red-500/10 mt-2 rounded-xl px-5 py-3">
-                        <Text className="text-red-500 text-center text-sm">{error}</Text>
-                    </View>
+                {controller && <RfSettingsCard settings={controller.settings} />}
+
+                {controller && (
+                    <LocationCard latitude={controller.latitude} longitude={controller.longitude} />
                 )}
-
-                {lastJobId && !error && (
-                    <Text className="text-muted-foreground text-xs">
-                        Last job: {lastJobId.slice(0, 12)}…
-                    </Text>
-                )}
-            </View>
+            </ScrollView>
         </View>
     )
 }

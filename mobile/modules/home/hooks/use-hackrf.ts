@@ -109,5 +109,5 @@ export function useHackrf() {
         }
     }, [controller, latestJob, runScan])
 
-    return { status, error, lastJobId }
+    return { status, error, lastJobId, controller }
 }
