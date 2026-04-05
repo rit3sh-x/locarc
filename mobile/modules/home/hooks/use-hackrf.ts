@@ -1,52 +1,44 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@backend/api";
-import type { Id } from "@backend/dataModel";
-import HackrfModule from "~/native";
-import type { ScanSettings } from "~/native";
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@backend/api'
+import type { Id } from '@backend/dataModel'
+import HackrfModule from '~/native'
+import type { ScanSettings } from '~/native'
 
-type HackrfStatus =
-    | "idle"
-    | "waiting"
-    | "scanning"
-    | "submitting"
-    | "done"
-    | "error";
+type HackrfStatus = 'idle' | 'waiting' | 'scanning' | 'submitting' | 'done' | 'error'
 
 export function useHackrf() {
-    const [status, setStatus] = useState<HackrfStatus>("idle");
-    const [error, setError] = useState<string | null>(null);
-    const [lastJobId, setLastJobId] = useState<string | null>(null);
+    const [status, setStatus] = useState<HackrfStatus>('idle')
+    const [error, setError] = useState<string | null>(null)
+    const [lastJobId, setLastJobId] = useState<string | null>(null)
 
-    const processedJobRef = useRef<string | null>(null);
-    const busyRef = useRef(false);
+    const processedJobRef = useRef<string | null>(null)
+    const busyRef = useRef(false)
 
-    const controller = useQuery(api.public.controller.getController);
-    const latestJob = useQuery(api.public.controller.getLatestJob);
-    const submitMeasurements = useMutation(
-        api.public.controller.submitMeasurements
-    );
+    const controller = useQuery(api.public.controller.getController)
+    const latestJob = useQuery(api.public.controller.getLatestJob)
+    const submitMeasurements = useMutation(api.public.controller.submitMeasurements)
 
     const runScan = useCallback(
         async (
-            batchId: Id<"jobBatch">,
+            batchId: Id<'jobBatch'>,
             settings: ScanSettings,
-            cancelled: { current: boolean }
+            cancelled: { current: boolean },
         ) => {
             try {
-                setStatus("scanning");
-                setError(null);
+                setStatus('scanning')
+                setError(null)
 
-                const measurements = await HackrfModule.runFullScan(settings);
-                if (cancelled.current) return;
+                const measurements = await HackrfModule.runFullScan(settings)
+                if (cancelled.current) return
 
                 if (measurements.length === 0) {
-                    setError("Scan produced no measurements");
-                    setStatus("error");
-                    return;
+                    setError('Scan produced no measurements')
+                    setStatus('error')
+                    return
                 }
 
-                setStatus("submitting");
+                setStatus('submitting')
 
                 await submitMeasurements({
                     jobBatchId: batchId,
@@ -54,53 +46,52 @@ export function useHackrf() {
                         frequencyHz: m.frequency,
                         powerDbm: m.powerDbm,
                     })),
-                });
+                })
 
-                if (cancelled.current) return;
+                if (cancelled.current) return
 
-                setLastJobId(batchId);
-                setError(null);
-                setStatus("done");
+                setLastJobId(batchId)
+                setError(null)
+                setStatus('done')
             } catch (err) {
                 if (!cancelled.current) {
-                    const msg =
-                        err instanceof Error ? err.message : String(err);
-                    setError(msg);
-                    setStatus("error");
+                    const msg = err instanceof Error ? err.message : String(err)
+                    setError(msg)
+                    setStatus('error')
                 }
             } finally {
-                busyRef.current = false;
+                busyRef.current = false
             }
         },
-        [submitMeasurements]
-    );
+        [submitMeasurements],
+    )
 
     useEffect(() => {
         if (!controller || !latestJob) {
-            setStatus("waiting");
-            return;
+            setStatus('waiting')
+            return
         }
 
         if (!latestJob.hasJob || !latestJob.job) {
-            setStatus("idle");
-            return;
+            setStatus('idle')
+            return
         }
 
-        const { batchId, alreadySubmitted } = latestJob.job;
+        const { batchId, alreadySubmitted } = latestJob.job
 
         if (alreadySubmitted) {
-            setStatus("idle");
-            return;
+            setStatus('idle')
+            return
         }
 
         if (processedJobRef.current === batchId || busyRef.current) {
-            return;
+            return
         }
 
-        processedJobRef.current = batchId;
-        busyRef.current = true;
+        processedJobRef.current = batchId
+        busyRef.current = true
 
-        const cancelled = { current: false };
+        const cancelled = { current: false }
 
         const settings: ScanSettings = {
             minFrequencyHz: controller.settings.minFreq,
@@ -109,14 +100,14 @@ export function useHackrf() {
             lnaGainDb: controller.settings.lnaGain,
             vgaGainDb: controller.settings.vgaGain,
             bufferSizeKb: controller.settings.bufferSize,
-        };
+        }
 
-        runScan(batchId as Id<"jobBatch">, settings, cancelled);
+        runScan(batchId as Id<'jobBatch'>, settings, cancelled)
 
         return () => {
-            cancelled.current = true;
-        };
-    }, [controller, latestJob, runScan]);
+            cancelled.current = true
+        }
+    }, [controller, latestJob, runScan])
 
-    return { status, error, lastJobId };
+    return { status, error, lastJobId }
 }

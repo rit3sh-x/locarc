@@ -6,6 +6,7 @@ import httpx
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from models import (
@@ -135,6 +136,13 @@ async def lifespan(_app):
 
 app = FastAPI(title="RF Localization Compute Service", lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.convex_site_url],
+    allow_methods=["POST"],
+    allow_headers=["Content-Type", "X-Webhook-Secret", "X-Signature-256"],
+)
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "algo": settings.localization_algo}
@@ -156,6 +164,12 @@ async def compute(request: Request, background: BackgroundTasks):
         payload = JobPayload.model_validate_json(raw)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+
+    if not payload.callbackUrl.startswith(settings.convex_site_url):
+        raise HTTPException(
+            status_code=403,
+            detail="Callback URL must point to the configured Convex site",
+        )
 
     log.info("Accepted batch=%s scan=%s", payload.batchId, payload.scanId)
 

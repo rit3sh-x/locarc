@@ -3,9 +3,11 @@ from typing import Literal
 
 class Settings(BaseSettings):
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 8080
 
     webhook_secret: str
+
+    convex_site_url: str
 
     localization_algo: Literal["annulus", "circle"] = "annulus"
 

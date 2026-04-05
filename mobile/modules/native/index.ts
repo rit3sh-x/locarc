@@ -1,2 +1,2 @@
-export { default } from "./src/NativeModule";
-export * from "./src/Native.types";
+export { default } from './src/NativeModule'
+export * from './src/Native.types'

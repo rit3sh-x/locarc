@@ -1,0 +1,28 @@
+{
+    "include": ["**/*.ts", "**/*.tsx", "eslint.config.js", "prettier.config.js", "vite.config.ts"],
+    "compilerOptions": {
+        "forceConsistentCasingInFileNames": true,
+        "target": "ES2022",
+        "jsx": "react-jsx",
+        "module": "ESNext",
+        "paths": {
+            "@/*": ["./src/*"],
+            "@backend/api": ["../backend/convex/_generated/api"],
+            "@backend/dataModel": ["../backend/convex/_generated/dataModel"],
+            "@backend/authDataModel": ["../backend/convex/betterAuth/_generated/dataModel"],
+            "@backend/types": ["../backend/convex/types"]
+        },
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "types": ["vite/client"],
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
+        "verbatimModuleSyntax": true,
+        "noEmit": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noFallthroughCasesInSwitch": true,
+        "noUncheckedSideEffectImports": true
+    }
+}

@@ -8,14 +8,15 @@ module.exports = function (api) {
         {
           root: ['./'],
           alias: {
-            '@backend/api': '../web/convex/_generated/api',
-            '@backend/dataModel': '../web/convex/_generated/dataModel',
-            '@backend/types': '../web/convex/types',
+            '@backend/api': '../backend/convex/_generated/api',
+            '@backend/dataModel': '../backend/convex/_generated/dataModel',
+            '@backend/types': '../backend/convex/types',
             '~': './modules',
             '@': './src',
           },
         },
       ],
+      require('@varlock/expo-integration/babel-plugin'),
     ],
   };
 };

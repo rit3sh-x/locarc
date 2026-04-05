@@ -1,0 +1,76 @@
+name: Deploy Server to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      SERVICE: locarc-api
+      REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Cleanup old Artifact Registry images
+        run: |
+          # Delete all images in the cloud-run-source-deploy repo (auto-created by Cloud Run)
+          REPO="${{ env.REGION }}-docker.pkg.dev/${{ steps.auth.outputs.project_id }}/cloud-run-source-deploy/${{ env.SERVICE }}"
+          DIGESTS=$(gcloud artifacts docker images list "$REPO" --format="value(version)" 2>/dev/null || true)
+          if [ -n "$DIGESTS" ]; then
+            for DIGEST in $DIGESTS; do
+              gcloud artifacts docker images delete "$REPO@$DIGEST" --quiet --delete-tags 2>/dev/null || true
+            done
+            echo "Cleaned up old images"
+          else
+            echo "No existing images to clean"
+          fi
+
+      - name: Cleanup Cloud Build storage
+        run: |
+          PROJECT_ID="${{ steps.auth.outputs.project_id }}"
+          # Remove Cloud Build source tarballs and logs
+          gcloud storage rm --recursive "gs://${PROJECT_ID}_cloudbuild/**" 2>/dev/null || echo "No build artifacts to clean"
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          service: ${{ env.SERVICE }}
+          source: server/
+          region: ${{ env.REGION }}
+          flags: |
+            --port=8080
+            --memory=1Gi
+            --cpu=1
+            --timeout=90
+            --min-instances=0
+            --max-instances=3
+            --allow-unauthenticated
+          env_vars: |
+            WEBHOOK_SECRET=${{ secrets.WEBHOOK_SECRET }}
+            CONVEX_SITE_URL=${{ vars.CONVEX_SITE_URL }}
+            LOCALIZATION_ALGO=${{ vars.LOCALIZATION_ALGO }}
+            PATH_LOSS_EXPONENT=${{ vars.PATH_LOSS_EXPONENT }}
+            PT_MIN_DBM=${{ vars.PT_MIN_DBM }}
+            PT_MAX_DBM=${{ vars.PT_MAX_DBM }}
+
+      - name: Output URL
+        run: echo "Deployed to ${{ steps.deploy.outputs.url }}"

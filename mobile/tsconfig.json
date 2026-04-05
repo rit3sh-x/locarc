@@ -5,7 +5,6 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "strict": true,
     "paths": {
       "@/*": [
@@ -15,13 +14,13 @@
         "./modules/*"
       ],
       "@backend/api": [
-        "../web/convex/_generated/api"
+        "../backend/convex/_generated/api"
       ],
       "@backend/dataModel": [
-        "../web/convex/_generated/dataModel"
+        "../backend/convex/_generated/dataModel"
       ],
       "@backend/types": [
-        "../web/convex/types"
+        "../backend/convex/types"
       ],
     }
   },
@@ -32,7 +31,8 @@
     "modules/**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
-    "uniwind-types.d.ts"
+    "uniwind-types.d.ts",
+    "env.d.ts"
   ],
   "exclude": [
     "node_modules"

@@ -1,1 +1,0 @@
-export const CONTROLLERS_PAGE_SIZE = 10;

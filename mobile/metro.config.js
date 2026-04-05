@@ -1,9 +1,10 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const { withUniwindConfig } = require('uniwind/metro');
+const { withVarlockMetroConfig } = require('@varlock/expo-integration/metro-config');
 const path = require('path');
 
 const projectRoot = __dirname;
-const convexRoot = path.resolve(projectRoot, '../web/convex');
+const convexRoot = path.resolve(projectRoot, '../backend/convex');
 
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
@@ -23,7 +24,10 @@ config.resolver.extraNodeModules = {
     '@': './src',
 };
 
-module.exports = withUniwindConfig(config, {
-    cssEntryFile: './src/app/globals.css',
-    dtsFile: './uniwind-types.d.ts'
-});
+module.exports = withUniwindConfig(
+    withVarlockMetroConfig(config),
+    {
+        cssEntryFile: './src/app/globals.css',
+        dtsFile: './uniwind-types.d.ts'
+    }
+);
