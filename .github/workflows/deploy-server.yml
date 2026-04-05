@@ -73,4 +73,10 @@ jobs:
             PT_MAX_DBM=${{ vars.PT_MAX_DBM }}
 
       - name: Output URL
-        run: echo "Deployed to ${{ steps.deploy.outputs.url }}"
+        run: |
+          echo "Deployed to ${{ steps.deploy.outputs.url }}"
+          echo "### 🚀 Server Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Service:** \`${{ env.SERVICE }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** \`${{ env.REGION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** ${{ steps.deploy.outputs.url }}" >> $GITHUB_STEP_SUMMARY
