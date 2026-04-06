@@ -6,6 +6,8 @@ import {
 } from "../lib/constants";
 import { requireAccess } from "../lib/utils";
 import { ConvexError, v } from "convex/values";
+import { components } from "../_generated/api";
+import type { Doc } from "../betterAuth/_generated/dataModel";
 
 const LOCATION_UPDATE_RADIUS_METERS = 20;
 
@@ -50,13 +52,41 @@ export const getController = query({
             });
         }
 
+        const admin: Doc<"user"> | null = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+                model: "user",
+                where: [
+                    {
+                        field: "_id",
+                        value: controller.adminId,
+                        operator: "eq",
+                    },
+                ],
+            }
+        );
+
+        if (!admin) {
+            throw new ConvexError({
+                code: "NOT_FOUND",
+                message: "Admin not found for this controller",
+            });
+        }
+
+        const algoSettings = await ctx.db
+            .query("settings")
+            .withIndex("by_org_slug", (q) =>
+                q.eq("orgSlug", admin.organizationSlug)
+            )
+            .unique();
+
         return {
             started: user.started,
             name: user.name,
             serialNumber: controller.serialNumber,
             longitude: controller.longitudeE6 / LOCATION_MULTIPLIER,
             latitude: controller.latitudeE6 / LOCATION_MULTIPLIER,
-            settings: {
+            rfSettings: {
                 minFreq: controller.minFreqHz,
                 maxFreq: controller.maxFreqHz,
                 sampleRate: controller.sampleRate,
@@ -64,6 +94,14 @@ export const getController = query({
                 lnaGain: controller.lnaGain,
                 bufferSize: controller.bufferSize,
             },
+            algoSettings: algoSettings
+                ? {
+                      phase1: algoSettings.phase1,
+                      phase2: algoSettings.phase2,
+                      phase3: algoSettings.phase3,
+                      channelMapping: algoSettings.channelMapping,
+                  }
+                : null,
         };
     },
 });

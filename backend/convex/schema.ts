@@ -99,4 +99,55 @@ export default defineSchema({
         .index("by_job_batch_id", ["jobBatchId"])
         .index("by_admin_id", ["adminId"])
         .index("by_scan_id", ["scanId"]),
+
+    settings: defineTable({
+        orgSlug: v.string(),
+        phase1: v.object({
+            sigBwHz: v.number(),
+            chSpacingHz: v.number(),
+            perOlf: v.number(),
+            numSamUseRatio: v.number(),
+            maxTh: v.number(),
+            kaiserBeta: v.number(),
+            highpassOrder: v.number(),
+            highpassCutoff: v.number(),
+            noiseMinPeaks: v.number(),
+            noiseMaxDiff: v.number(),
+        }),
+        phase2: v.object({
+            requiredFs1Hz: v.number(),
+            sigBwP1Hz: v.number(),
+            perOlfP1: v.number(),
+            numSamUseRatioP1: v.number(),
+            maxThP1: v.number(),
+            kaiserBetaP1: v.number(),
+            lpfOrder: v.number(),
+            lpfCutoff: v.number(),
+            noiseMinPeaksP2: v.number(),
+            noiseMaxDiffP2: v.number(),
+        }),
+        phase3: v.object({
+            priorKnowledgeBwHz: v.number(),
+            zoomFsPowerHz: v.number(),
+            sigBwPowHz: v.number(),
+            maxThPow: v.number(),
+            kaiserBetaPow: v.number(),
+            noiseMinPeaksPow: v.number(),
+            noiseMaxDiffPow: v.number(),
+        }),
+        channelMapping: v.object({
+            bandStartFreqHz: v.number(),
+            bandEndFreqHz: v.number(),
+            channelSpacingMapHz: v.number(),
+        }),
+        localization: v.object({
+            algorithm: v.union(v.literal("fourCircle"), v.literal("annulus")),
+            pathLossExponent: v.number(),
+            ptSearchRangeMinDbm: v.number(),
+            ptSearchRangeMaxDbm: v.number(),
+            ptSearchStepDbm: v.number(),
+            powerErrorRangeDb: v.number(),
+        }),
+    })
+        .index("by_org_slug", ["orgSlug"]),
 });

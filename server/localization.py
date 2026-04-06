@@ -7,6 +7,7 @@ class LocalizationConfig:
     path_loss_exponent: float = 3.5
     pt_min_dbm: float = 20.0
     pt_max_dbm: float = 43.0
+    pt_step_dbm: float = 0.5
     d0: float = 1.0
     de_seed: int = 42
 
@@ -99,7 +100,7 @@ def _circle_bounds(receivers: np.ndarray, powers: np.ndarray,
     top2 = np.argsort(powers)[-2:]
 
     pt_est = None
-    for pt in np.arange(cfg.pt_min_dbm, cfg.pt_max_dbm, 0.5):
+    for pt in np.arange(cfg.pt_min_dbm, cfg.pt_max_dbm, cfg.pt_step_dbm):
         d1 = 10 ** ((pt - powers[top2[1]]) / (10 * n))
         d2 = 10 ** ((pt - powers[top2[0]]) / (10 * n))
         if np.linalg.norm(receivers[top2[1]] - receivers[top2[0]]) <= d1 + d2:

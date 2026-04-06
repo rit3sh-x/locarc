@@ -67,10 +67,6 @@ jobs:
           env_vars: |
             WEBHOOK_SECRET=${{ secrets.WEBHOOK_SECRET }}
             CONVEX_SITE_URL=${{ vars.CONVEX_SITE_URL }}
-            LOCALIZATION_ALGO=${{ vars.LOCALIZATION_ALGO }}
-            PATH_LOSS_EXPONENT=${{ vars.PATH_LOSS_EXPONENT }}
-            PT_MIN_DBM=${{ vars.PT_MIN_DBM }}
-            PT_MAX_DBM=${{ vars.PT_MAX_DBM }}
 
       - name: Output URL
         run: |

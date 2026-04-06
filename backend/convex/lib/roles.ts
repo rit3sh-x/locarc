@@ -15,6 +15,7 @@ const statement = {
     measurement: ["create"],
     profile: ["update", "get"],
     localization: ["toggle", "stream"],
+    settings: ["read", "update"]
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -26,6 +27,7 @@ export const ROLE_MAP = {
         controller: ["list", "create", "update", "delete"],
         profile: ["update", "get"],
         localization: ["toggle", "stream"],
+        settings: ["read", "update"]
     }),
     [ROLES.USER]: ac.newRole({
         controller: ["getOne", "location"],

@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from models import (
     JobPayload, CallbackPayload, LocationResult, BoundPoint,
+    LocalizationConfig as PayloadLocConfig,
 )
 from localization import LocalizationConfig, localize_annulus, localize_circle
 
@@ -41,7 +42,7 @@ def bounds_to_corners(bounds, ref_lat: float, ref_lon: float) -> list[BoundPoint
     ]
 
 def _aggregate_power_dbm(samples: list) -> float:
-    linear = [10 ** (s.power_dbm / 10) for s in samples]
+    linear = [10 ** (s.powerDbm / 10) for s in samples]
     return 10 * np.log10(np.mean(linear))
 
 def run_localization(payload: JobPayload) -> list[LocationResult]:
@@ -72,13 +73,16 @@ def run_localization(payload: JobPayload) -> list[LocationResult]:
     ])
     powers = np.array([power_by_ctrl[cid] for cid in ctrl_ids])
 
+    loc_cfg = payload.localizationConfig or PayloadLocConfig()
     cfg = LocalizationConfig(
-        path_loss_exponent=settings.path_loss_exponent,
-        pt_min_dbm=settings.pt_min_dbm,
-        pt_max_dbm=settings.pt_max_dbm,
+        path_loss_exponent=loc_cfg.pathLossExponent,
+        pt_min_dbm=loc_cfg.ptSearchRangeMinDbm,
+        pt_max_dbm=loc_cfg.ptSearchRangeMaxDbm,
+        pt_step_dbm=loc_cfg.ptSearchStepDbm,
     )
 
-    if settings.localization_algo == "annulus":
+    algo = loc_cfg.algorithm
+    if algo == "annulus":
         est_xy, bounds = localize_annulus(receivers_xy, powers, cfg)
     else:
         est_xy, bounds = localize_circle(receivers_xy, powers, cfg)
@@ -88,7 +92,7 @@ def run_localization(payload: JobPayload) -> list[LocationResult]:
 
     log.info(
         "Localized batch=%s algo=%s → (%.6f, %.6f)",
-        payload.batchId, settings.localization_algo, center_lat, center_lon,
+        payload.batchId, algo, center_lat, center_lon,
     )
     return [LocationResult(
         centerLatitude=center_lat,
@@ -124,7 +128,7 @@ async def post_callback(url: str, body: CallbackPayload) -> None:
 
 @asynccontextmanager
 async def lifespan(_app):
-    log.info("Compute service ready — algo=%s", settings.localization_algo)
+    log.info("Compute service ready")
     yield
 
 app = FastAPI(title="RF Localization Compute Service", lifespan=lifespan)
@@ -138,7 +142,7 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "algo": settings.localization_algo}
+    return {"status": "ok"}
 
 @app.post("/compute", status_code=202)
 async def compute(request: Request, background: BackgroundTasks):

@@ -1,26 +1,26 @@
 from pydantic import BaseModel
-
-class ControllerSettings(BaseModel):
-    minFreqHz: float
-    maxFreqHz: float
-    sampleRate: float
-    vgaGain: float
-    lnaGain: float
-    bufferSize: int
+from typing import Literal, Optional
 
 class Controller(BaseModel):
     controllerId: str
     latitude: float
     longitude: float
-    settings: ControllerSettings
 
 class MeasurementSample(BaseModel):
-    frequency: float
-    power_dbm: float
+    frequencyHz: float
+    powerDbm: float
 
 class Measurement(BaseModel):
     controllerId: str
     samples: list[MeasurementSample]
+
+class LocalizationConfig(BaseModel):
+    algorithm: Literal["fourCircle", "annulus"] = "annulus"
+    pathLossExponent: float = 3.5
+    ptSearchRangeMinDbm: float = 20.0
+    ptSearchRangeMaxDbm: float = 43.0
+    ptSearchStepDbm: float = 0.5
+    powerErrorRangeDb: float = 3.0
 
 class JobPayload(BaseModel):
     batchId: str
@@ -28,6 +28,7 @@ class JobPayload(BaseModel):
     callbackUrl: str
     controllers: list[Controller]
     measurements: list[Measurement]
+    localizationConfig: Optional[LocalizationConfig] = None
 
 class BoundPoint(BaseModel):
     latitude: float

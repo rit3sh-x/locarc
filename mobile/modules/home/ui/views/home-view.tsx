@@ -38,7 +38,7 @@ export const HomeView = () => {
                     started={controller?.started ?? false}
                 />
 
-                {controller && <RfSettingsCard settings={controller.settings} />}
+                {controller && <RfSettingsCard settings={controller.rfSettings} />}
 
                 {controller && (
                     <LocationCard latitude={controller.latitude} longitude={controller.longitude} />

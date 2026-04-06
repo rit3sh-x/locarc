@@ -1,6 +1,7 @@
 package com.locarc.mobile
 
 import android.util.Log
+import com.locarc.mobile.algorithms.AlgoConfig
 import com.locarc.mobile.algorithms.SpectrumAnalyzer
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -74,7 +75,7 @@ class HackrfModule : Module() {
             }
         }
 
-        AsyncFunction("runFullScan") { params: Map<String, Any>, promise: Promise ->
+        AsyncFunction("runFullScan") { params: Map<String, Any>, algoParams: Map<String, Any>, promise: Promise ->
             val ctx = appContext.reactContext ?: return@AsyncFunction promise.reject(
                 "E_NO_CONTEXT", "React context unavailable", null
             )
@@ -90,6 +91,8 @@ class HackrfModule : Module() {
                 bufferSizeKb = (params["bufferSizeKb"] as? Number)?.toInt() ?: 256,
                 chunksPerStep = (params["chunksPerStep"] as? Number)?.toInt() ?: 16
             )
+
+            val algoConfig = AlgoConfig.fromMap(algoParams)
 
             scope.launch {
                 try {
@@ -131,7 +134,8 @@ class HackrfModule : Module() {
                     val iqSamples = HackrfScanner.chunksToIqSamples(allChunks)
                     val analyzer = SpectrumAnalyzer(
                         centerFreqHz = analysisCenter.toDouble(),
-                        bbSampleRate = settings.sampleRateHz.toDouble()
+                        bbSampleRate = settings.sampleRateHz.toDouble(),
+                        config = algoConfig
                     )
                     val measurements = analyzer.analyzeSpectrum(iqSamples)
 

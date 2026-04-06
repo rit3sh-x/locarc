@@ -6,20 +6,17 @@ import kotlin.math.round
 import kotlin.math.sqrt
 
 class SpectrumAnalyzer(
-    private val centerFreqHz: Double = 435e6,
-    private val bbSampleRate: Double = 20e6,
-    private val signalBandwidth: Double = 200e3,
-    private val channelSpacing: Double = 10e3,
-    private val startFrequency: Double = 300e6,
-    private val endFrequency: Double = 500e6,
-    private val channelGrid: Double = 12.5e3,
-    private val maxThreshold: Double = 0.09,
-    private val maxThresholdP1: Double = 0.35,
-    private val requiredFs1: Double = 200e3,
-    private val zoomFsPower: Double = 50e3,
-    private val priorKnowledgeBw: Double = 12.5e3
+    private val centerFreqHz: Double,
+    private val bbSampleRate: Double,
+    private val config: AlgoConfig = AlgoConfig()
 ) {
     data class PowerMeasurement(val frequency: Double, val powerDbm: Double)
+
+    private data class ZoomPkResult(
+        val fftAvg: Array<Complex>,
+        val peakPowers: List<Double>,
+        val peakFrequencies: List<Double>
+    )
 
     fun analyzeSpectrum(iqData: Array<Complex>): List<PowerMeasurement> {
         val globalFrequencies = detectGlobalFrequencies(iqData)
@@ -27,21 +24,22 @@ class SpectrumAnalyzer(
         return measurePower(iqData, uniqueFrequencies)
     }
 
+
     private fun detectGlobalFrequencies(rawData: Array<Complex>): List<Double> {
+        val p1 = config.phase1
+        val p2 = config.phase2
         val frameSize = rawData.size
 
-        val (bHp, aHp) = DspUtils.butter(1, 0.0001, highPass = true)
+        val (bHp, aHp) = DspUtils.butter(p1.highpassOrder, p1.highpassCutoff, highPass = true)
         val data = DspUtils.filtfilt(bHp, aHp, rawData)
 
-        val perOlf = 0.0
-        val numSamUseM = (0.5 * frameSize).toInt()
+        val numSamUseM = (p1.numSamUseRatio * frameSize).toInt()
         val zoomK = frameSize / numSamUseM
 
-        val w3 = DspUtils.kaiserWindow(numSamUseM, 36.0)
+        val w3 = DspUtils.kaiserWindow(numSamUseM, p1.kaiserBeta)
         val sumW3 = w3.sum()
 
-        val (framesRaw, numFragments) = DspUtils.generateOverlappingFrames(perOlf, data, numSamUseM)
-
+        val (framesRaw, numFragments) = DspUtils.generateOverlappingFrames(p1.perOlf, data, numSamUseM)
         val frames = framesRaw.map { frame ->
             Array(numSamUseM) { j -> frame[j] * w3[j] }
         }
@@ -54,50 +52,50 @@ class SpectrumAnalyzer(
 
         val (_, peakPowers, peakFrequencies) = whAvgFftZoomPk(
             frames, zoomK, numSamUseM, numFragments,
-            frequencyAxisZoom, signalBandwidth, maxThreshold, sumW3
+            frequencyAxisZoom, p1.sigBwHz, p1.maxTh, sumW3
         )
 
-        val numPeakFreq = peakFrequencies.size
         val globalFreqs = mutableListOf<Double>()
 
-        val noiseStage1 = isNoisySpectrum(peakPowers, threshold = 10.0, minPeaks = 10)
+        if (isNoisySpectrum(peakPowers, p1.noiseMaxDiff, p1.noiseMinPeaks)) {
+            return globalFreqs
+        }
 
-        if (!noiseStage1) {
-            for (nPeaks in 0 until numPeakFreq) {
-                val freq1 = peakFrequencies[nPeaks]
 
-                val iqShifted = DspUtils.frequencyShift(data, bbSampleRate, -freq1)
-                val decimated = DspUtils.lpfAndDownsample(2, 0.03, iqShifted, bbSampleRate, requiredFs1)
+        for (nPeaks in peakFrequencies.indices) {
+            val freq1 = peakFrequencies[nPeaks]
+            val iqShifted = DspUtils.frequencyShift(data, bbSampleRate, -freq1)
+            val decimated = DspUtils.lpfAndDownsample(
+                p2.lpfOrder, p2.lpfCutoff, iqShifted, bbSampleRate, p2.requiredFs1Hz
+            )
 
-                val sigBwP1 = channelSpacing
-                val numSamP1 = (decimated.size * 0.5).toInt()
-                val zoomKP1 = decimated.size / numSamP1
+            val numSamP1 = (decimated.size * p2.numSamUseRatioP1).toInt()
+            val zoomKP1 = decimated.size / numSamP1
 
-                val w3P1 = DspUtils.kaiserWindow(numSamP1, 60.0)
-                val sumW3P1 = w3P1.sum()
+            val w3P1 = DspUtils.kaiserWindow(numSamP1, p2.kaiserBetaP1)
+            val sumW3P1 = w3P1.sum()
 
-                val (framesP1Raw, numFragsP1) = DspUtils.generateOverlappingFrames(0.0, decimated, numSamP1)
-                val framesP1 = framesP1Raw.map { frame ->
-                    Array(numSamP1) { j -> frame[j] * w3P1[j] }
-                }
+            val (framesP1Raw, numFragsP1) = DspUtils.generateOverlappingFrames(
+                p2.perOlfP1, decimated, numSamP1
+            )
+            val framesP1 = framesP1Raw.map { frame ->
+                Array(numSamP1) { j -> frame[j] * w3P1[j] }
+            }
 
-                val totalFftP1 = numSamP1 * zoomKP1
-                val freqStepP1 = requiredFs1 / totalFftP1
-                val freqAxisP1 = DoubleArray(totalFftP1) { i ->
-                    -requiredFs1 / 2.0 + i * freqStepP1
-                }
+            val totalFftP1 = numSamP1 * zoomKP1
+            val freqStepP1 = p2.requiredFs1Hz / totalFftP1
+            val freqAxisP1 = DoubleArray(totalFftP1) { i ->
+                -p2.requiredFs1Hz / 2.0 + i * freqStepP1
+            }
 
-                val (_, peakPowersP1, peakFreqsP1) = whAvgFftZoomPk(
-                    framesP1, zoomKP1, numSamP1, numFragsP1,
-                    freqAxisP1, sigBwP1, maxThresholdP1, sumW3P1
-                )
+            val (_, peakPowersP1, peakFreqsP1) = whAvgFftZoomPk(
+                framesP1, zoomKP1, numSamP1, numFragsP1,
+                freqAxisP1, p2.sigBwP1Hz, p2.maxThP1, sumW3P1
+            )
 
-                val noiseP1 = isNoisySpectrum(peakPowersP1, threshold = 10.0, minPeaks = 5)
-
-                if (!noiseP1) {
-                    for (idx in peakFreqsP1.indices) {
-                        globalFreqs.add(centerFreqHz + freq1 + peakFreqsP1[idx])
-                    }
+            if (!isNoisySpectrum(peakPowersP1, p2.noiseMaxDiffP2, p2.noiseMinPeaksP2)) {
+                for (idx in peakFreqsP1.indices) {
+                    globalFreqs.add(centerFreqHz + freq1 + peakFreqsP1[idx])
                 }
             }
         }
@@ -105,54 +103,77 @@ class SpectrumAnalyzer(
         return globalFreqs
     }
 
+
     private fun measurePower(
         rawData: Array<Complex>,
         targetFrequencies: List<Double>
     ): List<PowerMeasurement> {
+        val p3 = config.phase3
+        val cm = config.channelMapping
         val results = mutableListOf<PowerMeasurement>()
 
         for (peakFreqAbs in targetFrequencies) {
             val peakFreqOffset = peakFreqAbs - centerFreqHz
             val iqShifted = DspUtils.frequencyShift(rawData, bbSampleRate, -peakFreqOffset)
-            val iqZoomed = DspUtils.lpfAndDownsample(2, 0.03, iqShifted, bbSampleRate, zoomFsPower)
+            val iqZoomed = DspUtils.lpfAndDownsample(
+                2, 0.03, iqShifted, bbSampleRate, p3.zoomFsPowerHz
+            )
 
-            val n = iqZoomed.size
-            val win = DspUtils.kaiserWindow(n, 60.0)
+            val numSamPow = iqZoomed.size
+            val zoomKPow = 1
 
-            val windowed = Array(n) { i -> iqZoomed[i] * win[i] }
-            val fftSize = FftEngine.nextPowerOf2(n)
-            val fftResult = FftEngine.fftShifted(windowed, fftSize)
+            val win = DspUtils.kaiserWindow(numSamPow, p3.kaiserBetaPow)
+            val sumW3Pow = win.sum()
+            var winPow = 0.0
+            for (w in win) winPow += w * w
 
-            val freqStep = zoomFsPower / fftSize
-            val freqAxis = DoubleArray(fftSize) { i -> -zoomFsPower / 2.0 + i * freqStep }
-
-            var finePeakIdx = 0
-            var maxAbs = fftResult[0].abs()
-            for (i in 1 until fftSize) {
-                val currAbs = fftResult[i].abs()
-                if (currAbs > maxAbs) {
-                    maxAbs = currAbs
-                    finePeakIdx = i
-                }
+            val (framesPowRaw, numFragsPow) = DspUtils.generateOverlappingFrames(
+                0.0, iqZoomed, numSamPow
+            )
+            val framesPow = framesPowRaw.map { frame ->
+                Array(numSamPow) { j -> frame[j] * win[j] }
             }
 
-            val fineFreqOffset = freqAxis[finePeakIdx]
-            val finalCorrectedFreq = peakFreqAbs + fineFreqOffset
+            val totalFftPow = numSamPow * zoomKPow
+            val freqStepPow = p3.zoomFsPowerHz / totalFftPow
+            val freqAxisPow = DoubleArray(totalFftPow) { i ->
+                -p3.zoomFsPowerHz / 2.0 + i * freqStepPow
+            }
 
-            var u = 0.0
-            for (i in 0 until n) u += win[i] * win[i]
-            u /= n
+            val (fftAvgPow, peakPowersPow, peakFreqsPow) = whAvgFftZoomPk(
+                framesPow, zoomKPow, numSamPow, numFragsPow,
+                freqAxisPow, p3.sigBwPowHz, p3.maxThPow, sumW3Pow
+            )
+
+            if (isNoisySpectrum(peakPowersPow, p3.noiseMaxDiffPow, p3.noiseMinPeaksPow)) {
+                continue
+            }
+
+            var finalCorrectedFreq = peakFreqAbs
+            if (peakFreqsPow.isNotEmpty()) {
+                finalCorrectedFreq = peakFreqAbs + peakFreqsPow[0]
+                finalCorrectedFreq = mapToBand(finalCorrectedFreq, cm)
+            }
+
+            val fftSize = fftAvgPow.size
+            val denominator = sqrt(p3.zoomFsPowerHz * winPow)
 
             val psd = DoubleArray(fftSize) { i ->
-                val a = fftResult[i].abs()
-                (a * a) / (u * zoomFsPower * fftSize)
+                val xa = fftAvgPow[i].abs()
+                val xasd = 2.0 * xa / denominator
+                xasd * xasd / 2.0
             }
 
-            val df = freqAxis[1] - freqAxis[0]
+            val df = if (freqAxisPow.size >= 2) freqAxisPow[1] - freqAxisPow[0] else 1.0
+            val effectivePsd = if (fftSize <= freqAxisPow.size) psd
+            else DoubleArray(freqAxisPow.size) { psd[it] }
+
             var powerWatts = 0.0
-            for (i in 0 until fftSize) {
-                if (freqAxis[i] >= -priorKnowledgeBw / 2.0 && freqAxis[i] <= priorKnowledgeBw / 2.0) {
-                    powerWatts += psd[i] * df
+            for (i in freqAxisPow.indices) {
+                if (freqAxisPow[i] >= -p3.priorKnowledgeBwHz / 2.0 &&
+                    freqAxisPow[i] <= p3.priorKnowledgeBwHz / 2.0
+                ) {
+                    powerWatts += effectivePsd[i] * df
                 }
             }
 
@@ -165,11 +186,6 @@ class SpectrumAnalyzer(
         return results
     }
 
-    private data class ZoomPkResult(
-        val fftAvg: Array<Complex>,
-        val peakPowers: List<Double>,
-        val peakFrequencies: List<Double>
-    )
 
     private fun whAvgFftZoomPk(
         windowedFrames: List<Array<Complex>>,
@@ -200,11 +216,11 @@ class SpectrumAnalyzer(
             20.0 * log10(xas + 1e-300)
         }
 
-        val maxDb = xasDb.max()
+        val maxDb = xasDb.maxOrNull() ?: return ZoomPkResult(fftSum, emptyList(), emptyList())
         val threshold = 20.0 * log10(maxTh) + maxDb
 
-        val freqResolution = if (frequencyAxis.size >= 2) frequencyAxis[1] - frequencyAxis[0]
-        else 1.0
+        val freqResolution = if (frequencyAxis.size >= 2)
+            frequencyAxis[1] - frequencyAxis[0] else 1.0
         val distance = round(sigBw / freqResolution).toInt()
 
         val effectiveDb = if (paddedSize <= frequencyAxis.size) xasDb
@@ -218,9 +234,14 @@ class SpectrumAnalyzer(
         return ZoomPkResult(fftSum, peakPowers, peakFrequencies)
     }
 
-    private fun mapToBand(inputFrequency: Double): Double {
-        val channelIndex = round((inputFrequency - startFrequency) / channelGrid) + 1.0
-        return startFrequency + (channelIndex - 1.0) * channelGrid
+    private fun mapToBand(
+        inputFrequency: Double,
+        cm: ChannelMappingConfig
+    ): Double {
+        val channelIndex = round(
+            (inputFrequency - cm.bandStartFreqHz) / cm.channelSpacingMapHz
+        ) + 1.0
+        return cm.bandStartFreqHz + (channelIndex - 1.0) * cm.channelSpacingMapHz
     }
 
     private fun isNoisySpectrum(
@@ -233,7 +254,7 @@ class SpectrumAnalyzer(
         val diffs = (0 until peakPowers.size - 1).map {
             abs(peakPowers[it + 1] - peakPowers[it])
         }
-        val minDiff = diffs.min()
+        val minDiff = diffs.minOrNull() ?: return false
         return minDiff <= threshold
     }
 }

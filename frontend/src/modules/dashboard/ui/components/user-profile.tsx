@@ -20,12 +20,10 @@ export function UserProfile() {
 
     const [isEditing, setIsEditing] = useState(false)
     const [editName, setEditName] = useState(profile?.name)
-    const [editSlug, setEditSlug] = useState(profile?.organizationSlug)
     const [editUsername, setEditUsername] = useState(profile?.username)
 
     const snapshotRef = useRef<{
         name: string
-        organizationSlug: string
         username: string
     } | null>(null)
 
@@ -34,28 +32,24 @@ export function UserProfile() {
 
         snapshotRef.current = {
             name: profile.name,
-            organizationSlug: profile.organizationSlug,
             username: profile.username,
         }
 
         try {
             await updateProfile({
                 name: editName,
-                organizationSlug: editSlug,
                 username: editUsername,
             })
             setIsEditing(false)
         } catch {
             setEditName(snapshotRef.current.name)
-            setEditSlug(snapshotRef.current.organizationSlug)
             setEditUsername(snapshotRef.current.username)
             setIsEditing(false)
         }
-    }, [isPending, profile, editName, editSlug, editUsername, updateProfile])
+    }, [isPending, profile, editName, editUsername, updateProfile])
 
     if (profile && !isEditing) {
         if (editName !== profile.name) setEditName(profile.name)
-        if (editSlug !== profile.organizationSlug) setEditSlug(profile.organizationSlug)
         if (editUsername !== profile.username) setEditUsername(profile.username)
     }
 
@@ -73,7 +67,9 @@ export function UserProfile() {
                     <div className="flex items-center justify-between gap-2">
                         <div className="flex flex-col text-left">
                             <span className="font-medium">{editName}</span>
-                            <span className="text-xs text-muted-foreground">{editSlug}</span>
+                            <span className="text-xs text-muted-foreground">
+                                {profile.organizationSlug}
+                            </span>
                         </div>
                         <ChevronDown className="size-4" />
                     </div>
@@ -109,25 +105,13 @@ export function UserProfile() {
                                 />
                             </div>
 
-                            <div>
-                                <label className="text-xs text-muted-foreground">
-                                    Organization Slug
-                                </label>
-                                <Input
-                                    disabled={isPending}
-                                    value={editSlug}
-                                    onChange={(e) => setEditSlug(e.target.value)}
-                                    onBlur={save}
-                                    onKeyDown={(e) => e.key === 'Enter' && save()}
-                                    className={`${inputBase} text-xs`}
-                                />
-                            </div>
+                            <div>{profile.organizationSlug}</div>
                         </div>
                     ) : (
                         <div className="flex flex-col cursor-pointer">
                             <span className="text-sm font-medium">{editName}</span>
                             <span className="text-xs text-muted-foreground">
-                                @{editUsername} · {editSlug}
+                                @{editUsername} · {profile.organizationSlug}
                             </span>
                             <span className="text-xs text-muted-foreground mt-0.5">
                                 (double-click to edit)

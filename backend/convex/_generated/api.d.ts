@@ -17,6 +17,7 @@ import type * as lib_roles from "../lib/roles.js";
 import type * as lib_utils from "../lib/utils.js";
 import type * as private_controller from "../private/controller.js";
 import type * as private_localization from "../private/localization.js";
+import type * as private_settings from "../private/settings.js";
 import type * as private_user from "../private/user.js";
 import type * as public_controller from "../public/controller.js";
 import type * as types from "../types.js";
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   "lib/utils": typeof lib_utils;
   "private/controller": typeof private_controller;
   "private/localization": typeof private_localization;
+  "private/settings": typeof private_settings;
   "private/user": typeof private_user;
   "public/controller": typeof public_controller;
   types: typeof types;

@@ -3,9 +3,50 @@ import { useQuery, useMutation } from 'convex/react'
 import { api } from '@backend/api'
 import type { Id } from '@backend/dataModel'
 import HackrfModule from '~/native'
-import type { ScanSettings } from '~/native'
+import type { ScanSettings, AlgoSettings } from '~/native'
 
 type HackrfStatus = 'idle' | 'waiting' | 'scanning' | 'submitting' | 'done' | 'error'
+
+const DEFAULT_ALGO_SETTINGS: AlgoSettings = {
+    phase1: {
+        sigBwHz: 200_000,
+        chSpacingHz: 10_000,
+        perOlf: 0,
+        numSamUseRatio: 0.5,
+        maxTh: 0.09,
+        kaiserBeta: 36,
+        highpassOrder: 1,
+        highpassCutoff: 0.0001,
+        noiseMinPeaks: 10,
+        noiseMaxDiff: 10,
+    },
+    phase2: {
+        requiredFs1Hz: 200_000,
+        sigBwP1Hz: 10_000,
+        perOlfP1: 0,
+        numSamUseRatioP1: 0.5,
+        maxThP1: 0.4,
+        kaiserBetaP1: 60,
+        lpfOrder: 2,
+        lpfCutoff: 0.03,
+        noiseMinPeaksP2: 5,
+        noiseMaxDiffP2: 10,
+    },
+    phase3: {
+        priorKnowledgeBwHz: 10_000,
+        zoomFsPowerHz: 50_000,
+        sigBwPowHz: 5_000,
+        maxThPow: 0.4,
+        kaiserBetaPow: 60,
+        noiseMinPeaksPow: 2,
+        noiseMaxDiffPow: 10,
+    },
+    channelMapping: {
+        bandStartFreqHz: 300_000_000,
+        bandEndFreqHz: 500_000_000,
+        channelSpacingMapHz: 12_500,
+    },
+}
 
 export function useHackrf() {
     const [status, setStatus] = useState<HackrfStatus>('idle')
@@ -23,13 +64,14 @@ export function useHackrf() {
         async (
             batchId: Id<'jobBatch'>,
             settings: ScanSettings,
+            algoSettings: AlgoSettings,
             cancelled: { current: boolean },
         ) => {
             try {
                 setStatus('scanning')
                 setError(null)
 
-                const measurements = await HackrfModule.runFullScan(settings)
+                const measurements = await HackrfModule.runFullScan(settings, algoSettings)
                 if (cancelled.current) return
 
                 if (measurements.length === 0) {
@@ -94,15 +136,17 @@ export function useHackrf() {
         const cancelled = { current: false }
 
         const settings: ScanSettings = {
-            minFrequencyHz: controller.settings.minFreq,
-            maxFrequencyHz: controller.settings.maxFreq,
-            sampleRateHz: controller.settings.sampleRate,
-            lnaGainDb: controller.settings.lnaGain,
-            vgaGainDb: controller.settings.vgaGain,
-            bufferSizeKb: controller.settings.bufferSize,
+            minFrequencyHz: controller.rfSettings.minFreq,
+            maxFrequencyHz: controller.rfSettings.maxFreq,
+            sampleRateHz: controller.rfSettings.sampleRate,
+            lnaGainDb: controller.rfSettings.lnaGain,
+            vgaGainDb: controller.rfSettings.vgaGain,
+            bufferSizeKb: controller.rfSettings.bufferSize,
         }
 
-        runScan(batchId as Id<'jobBatch'>, settings, cancelled)
+        const algoSettings: AlgoSettings = controller.algoSettings ?? DEFAULT_ALGO_SETTINGS
+
+        runScan(batchId as Id<'jobBatch'>, settings, algoSettings, cancelled)
 
         return () => {
             cancelled.current = true

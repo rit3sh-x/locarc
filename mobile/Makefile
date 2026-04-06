@@ -4,13 +4,13 @@ APK_SRC  := android/app/build/outputs/apk/release/app-release.apk
 APK_DEST := android/app/build/outputs/apk/release/locarc.apk
 
 install:
-	npm install
+	pnpm install
 
 prebuild:
-	npm run prebuild:android
+	pnpm run prebuild:android
 
 debug:
-	npm run android
+	pnpm run android
 
 build-apk:
 	cd android && ./gradlew assembleRelease --no-daemon --build-cache
@@ -27,10 +27,10 @@ clean:
 	rm -rf android/.gradle
 
 dev:
-	npm run dev:android
+	pnpm run dev
 
 lint:
-	npm run lint
+	pnpm run lint
 
 format:
-	npm run format
+	pnpm run format

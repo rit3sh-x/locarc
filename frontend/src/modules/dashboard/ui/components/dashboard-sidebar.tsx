@@ -1,4 +1,4 @@
-import { LogOutIcon, MapIcon, WorkflowIcon } from 'lucide-react'
+import { LogOutIcon, MapIcon, Settings2Icon, WorkflowIcon } from 'lucide-react'
 import { Link, useLocation } from '@tanstack/react-router'
 import {
     Sidebar,
@@ -33,6 +33,11 @@ const configuration: SidebarConfigItem[] = [
         title: 'Controllers',
         url: '/controllers',
         icon: WorkflowIcon,
+    },
+    {
+        title: 'Settings',
+        url: '/settings',
+        icon: Settings2Icon,
     },
 ]
 

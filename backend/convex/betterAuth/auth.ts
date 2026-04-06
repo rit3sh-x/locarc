@@ -1,9 +1,9 @@
-import { createClient } from "@convex-dev/better-auth";
+import { createClient, type AuthFunctions } from "@convex-dev/better-auth";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import type { GenericCtx } from "@convex-dev/better-auth/utils";
 import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
 import schema from "./schema";
@@ -18,17 +18,35 @@ import { ROLES, ROLE_VALUES, ac, ROLE_MAP } from "../lib/roles";
 import { APIError } from "better-auth/api";
 import { customOptions } from "./options";
 import { CONTROLLER_EMAIL_SUFFIX } from "../lib/constants";
+import { internal as componentInternal } from "./_generated/api";
 
 const siteUrl = process.env.SITE_URL!;
 const mobileScheme = process.env.MOBILE_SCHEME!;
 
+const authFunctions: AuthFunctions = componentInternal.auth;
+
 export const authComponent = createClient<DataModel, typeof schema>(
     components.betterAuth,
     {
+        authFunctions,
         local: { schema },
         verbose: false,
-    }
+        triggers: {
+            user: {
+                onCreate: async (ctx, doc) => {
+                    if (doc.organizationSlug && doc.role === "ADMIN") {
+                        await ctx.runMutation(
+                            internal.private.settings.createForOrg,
+                            { orgSlug: doc.organizationSlug }
+                        );
+                    }
+                },
+            },
+        },
+    },
 );
+
+export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     return {

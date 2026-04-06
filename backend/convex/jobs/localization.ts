@@ -71,21 +71,38 @@ export const getBatchPayload = internalQuery({
             await Promise.all(controllerIds.map((id) => ctx.db.get(id)))
         ).filter(Boolean);
 
+        const admin: Doc<"user"> | null = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+                model: "user",
+                where: [
+                    { field: "_id", value: batch.adminId, operator: "eq" },
+                ],
+            }
+        );
+
+        let localizationConfig = null;
+        if (admin?.organizationSlug) {
+            const settings = await ctx.db
+                .query("settings")
+                .withIndex("by_org_slug", (q) =>
+                    q.eq("orgSlug", admin.organizationSlug)
+                )
+                .unique();
+
+            if (settings) {
+                localizationConfig = settings.localization;
+            }
+        }
+
         return {
             batchId: batch._id,
             scanId: batch.scanId,
+            localizationConfig,
             controllers: controllers.map((c) => ({
                 controllerId: c!._id,
                 latitude: c!.latitudeE6 / LOCATION_MULTIPLIER,
                 longitude: c!.longitudeE6 / LOCATION_MULTIPLIER,
-                settings: {
-                    minFreqHz: c!.minFreqHz,
-                    maxFreqHz: c!.maxFreqHz,
-                    sampleRate: c!.sampleRate,
-                    vgaGain: c!.vgaGain,
-                    lnaGain: c!.lnaGain,
-                    bufferSize: c!.bufferSize,
-                },
             })),
             measurements: measurements.map((m) => ({
                 controllerId: m.controllerId,

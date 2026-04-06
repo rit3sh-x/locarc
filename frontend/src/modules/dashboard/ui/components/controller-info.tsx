@@ -53,33 +53,37 @@ export const ControllerInfo = (): React.JSX.Element => {
                         <div className="space-y-1">
                             <Label className="text-muted-foreground text-xs">Min Frequency</Label>
                             <p className="text-sm font-medium">
-                                {controller.settings.minFreq.toLocaleString()} Hz
+                                {controller.rfSettings.minFreq.toLocaleString()} Hz
                             </p>
                         </div>
                         <div className="space-y-1">
                             <Label className="text-muted-foreground text-xs">Max Frequency</Label>
                             <p className="text-sm font-medium">
-                                {controller.settings.maxFreq.toLocaleString()} Hz
+                                {controller.rfSettings.maxFreq.toLocaleString()} Hz
                             </p>
                         </div>
                         <div className="space-y-1">
                             <Label className="text-muted-foreground text-xs">Sample Rate</Label>
                             <p className="text-sm font-medium">
-                                {controller.settings.sampleRate.toLocaleString()} Hz
+                                {controller.rfSettings.sampleRate.toLocaleString()} Hz
                             </p>
                         </div>
                         <div className="space-y-1">
                             <Label className="text-muted-foreground text-xs">VGA Gain</Label>
-                            <p className="text-sm font-medium">{controller.settings.vgaGain} dB</p>
+                            <p className="text-sm font-medium">
+                                {controller.rfSettings.vgaGain} dB
+                            </p>
                         </div>
                         <div className="space-y-1">
                             <Label className="text-muted-foreground text-xs">LNA Gain</Label>
-                            <p className="text-sm font-medium">{controller.settings.lnaGain} dB</p>
+                            <p className="text-sm font-medium">
+                                {controller.rfSettings.lnaGain} dB
+                            </p>
                         </div>
                         <div className="space-y-1">
                             <Label className="text-muted-foreground text-xs">Buffer Size</Label>
                             <p className="text-sm font-medium">
-                                {controller.settings.bufferSize.toLocaleString()} bytes
+                                {controller.rfSettings.bufferSize.toLocaleString()} bytes
                             </p>
                         </div>
                     </div>

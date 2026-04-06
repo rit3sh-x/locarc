@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as userDetailsRouteImport } from './routes/(user)/details'
 import { Route as authSignupRouteImport } from './routes/(auth)/signup'
 import { Route as authSigninRouteImport } from './routes/(auth)/signin'
+import { Route as adminSettingsRouteImport } from './routes/(admin)/settings'
 import { Route as adminMapRouteImport } from './routes/(admin)/map'
 import { Route as adminControllersRouteImport } from './routes/(admin)/controllers'
 
@@ -46,6 +47,11 @@ const authSigninRoute = authSigninRouteImport.update({
   path: '/signin',
   getParentRoute: () => authRouteRoute,
 } as any)
+const adminSettingsRoute = adminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => adminRouteRoute,
+} as any)
 const adminMapRoute = adminMapRouteImport.update({
   id: '/map',
   path: '/map',
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/controllers': typeof adminControllersRoute
   '/map': typeof adminMapRoute
+  '/settings': typeof adminSettingsRoute
   '/signin': typeof authSigninRoute
   '/signup': typeof authSignupRoute
   '/details': typeof userDetailsRoute
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/controllers': typeof adminControllersRoute
   '/map': typeof adminMapRoute
+  '/settings': typeof adminSettingsRoute
   '/signin': typeof authSigninRoute
   '/signup': typeof authSignupRoute
   '/details': typeof userDetailsRoute
@@ -80,15 +88,30 @@ export interface FileRoutesById {
   '/(auth)': typeof authRouteRouteWithChildren
   '/(admin)/controllers': typeof adminControllersRoute
   '/(admin)/map': typeof adminMapRoute
+  '/(admin)/settings': typeof adminSettingsRoute
   '/(auth)/signin': typeof authSigninRoute
   '/(auth)/signup': typeof authSignupRoute
   '/(user)/details': typeof userDetailsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/controllers' | '/map' | '/signin' | '/signup' | '/details'
+  fullPaths:
+    | '/'
+    | '/controllers'
+    | '/map'
+    | '/settings'
+    | '/signin'
+    | '/signup'
+    | '/details'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/controllers' | '/map' | '/signin' | '/signup' | '/details'
+  to:
+    | '/'
+    | '/controllers'
+    | '/map'
+    | '/settings'
+    | '/signin'
+    | '/signup'
+    | '/details'
   id:
     | '__root__'
     | '/'
@@ -96,6 +119,7 @@ export interface FileRouteTypes {
     | '/(auth)'
     | '/(admin)/controllers'
     | '/(admin)/map'
+    | '/(admin)/settings'
     | '/(auth)/signin'
     | '/(auth)/signup'
     | '/(user)/details'
@@ -152,6 +176,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authSigninRouteImport
       parentRoute: typeof authRouteRoute
     }
+    '/(admin)/settings': {
+      id: '/(admin)/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof adminSettingsRouteImport
+      parentRoute: typeof adminRouteRoute
+    }
     '/(admin)/map': {
       id: '/(admin)/map'
       path: '/map'
@@ -172,11 +203,13 @@ declare module '@tanstack/react-router' {
 interface adminRouteRouteChildren {
   adminControllersRoute: typeof adminControllersRoute
   adminMapRoute: typeof adminMapRoute
+  adminSettingsRoute: typeof adminSettingsRoute
 }
 
 const adminRouteRouteChildren: adminRouteRouteChildren = {
   adminControllersRoute: adminControllersRoute,
   adminMapRoute: adminMapRoute,
+  adminSettingsRoute: adminSettingsRoute,
 }
 
 const adminRouteRouteWithChildren = adminRouteRoute._addFileChildren(
