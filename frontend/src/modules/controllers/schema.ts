@@ -24,8 +24,6 @@ export const addControllerSchema = z.object({
     name: z.string().min(3, 'Name must be at least 3 characters'),
     username: z.string().min(3, 'Username must be at least 3 characters'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
-    latitude: z.number().min(-90).max(90),
-    longitude: z.number().min(-180).max(180),
     settings: z.object({
         minFreqHz: z.number().positive(),
         maxFreqHz: z.number().positive(),
