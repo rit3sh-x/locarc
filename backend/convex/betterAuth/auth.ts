@@ -93,6 +93,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
             username({
                 maxUsernameLength: 20,
                 minUsernameLength: 3,
+                usernameNormalization: false,
             }),
             admin({
                 ac,

@@ -17,7 +17,7 @@ export const HomeView = () => {
     const isConnected = controller !== undefined
 
     return (
-        <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
+        <View className="flex-1 bg-background px-4" style={{ paddingTop: insets.top }}>
             <View className="flex-row items-center justify-between px-5 py-3">
                 <Text className="text-foreground text-lg font-semibold" numberOfLines={1}>
                     {controller?.name ?? 'Loading...'}
@@ -26,8 +26,9 @@ export const HomeView = () => {
             </View>
 
             <ScrollView
-                className="flex-1 px-5"
-                contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+                className="flex-1"
+                contentContainerClassName="gap-4"
+                contentContainerStyle={{ paddingBottom: insets.bottom }}
                 showsVerticalScrollIndicator={false}
             >
                 <StatusIndicator status={status} error={error} lastJobId={lastJobId} />
@@ -43,6 +44,8 @@ export const HomeView = () => {
                 {controller && (
                     <LocationCard latitude={controller.latitude} longitude={controller.longitude} />
                 )}
+
+                <View className="h-12 w-full" />
             </ScrollView>
         </View>
     )
