@@ -20,6 +20,7 @@ import type * as private_localization from "../private/localization.js";
 import type * as private_settings from "../private/settings.js";
 import type * as private_user from "../private/user.js";
 import type * as public_controller from "../public/controller.js";
+import type * as triggers from "../triggers.js";
 import type * as types from "../types.js";
 
 import type {
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   "private/settings": typeof private_settings;
   "private/user": typeof private_user;
   "public/controller": typeof public_controller;
+  triggers: typeof triggers;
   types: typeof types;
 }>;
 

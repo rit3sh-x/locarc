@@ -18,12 +18,11 @@ import { ROLES, ROLE_VALUES, ac, ROLE_MAP } from "../lib/roles";
 import { APIError } from "better-auth/api";
 import { customOptions } from "./options";
 import { CONTROLLER_EMAIL_SUFFIX } from "../lib/constants";
-import { internal as componentInternal } from "./_generated/api";
 
 const siteUrl = process.env.SITE_URL!;
 const mobileScheme = process.env.MOBILE_SCHEME!;
 
-const authFunctions: AuthFunctions = componentInternal.auth;
+const authFunctions: AuthFunctions = internal.triggers;
 
 export const authComponent = createClient<DataModel, typeof schema>(
     components.betterAuth,
@@ -46,7 +45,7 @@ export const authComponent = createClient<DataModel, typeof schema>(
     },
 );
 
-export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
+export const { onCreate, onDelete, onUpdate } = authComponent.triggersApi();
 
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     return {
