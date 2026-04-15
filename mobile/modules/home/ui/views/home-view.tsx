@@ -10,7 +10,7 @@ import { useHackrf } from '../../hooks/use-hackrf'
 import { useLocation } from '../../hooks/use-location'
 
 export const HomeView = () => {
-    const { status, error, lastJobId, controller } = useHackrf()
+    const { status, error, lastJobId, controller, hackrfConnected } = useHackrf()
     useLocation()
     const insets = useSafeAreaInsets()
 
@@ -36,6 +36,7 @@ export const HomeView = () => {
                 <ConnectionCard
                     status={status}
                     isConnected={isConnected}
+                    hackrfConnected={hackrfConnected}
                     started={controller?.started ?? false}
                 />
 

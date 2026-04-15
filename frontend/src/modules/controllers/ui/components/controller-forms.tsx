@@ -106,8 +106,6 @@ export function EditControllerModal({
             name: controller.name,
             username: controller.username,
             password: '',
-            latitude: controller.latitude,
-            longitude: controller.longitude,
             settings: {
                 minFreqHz: controller.settings.minFreqHz,
                 maxFreqHz: controller.settings.maxFreqHz,
@@ -199,47 +197,6 @@ export function EditControllerModal({
                             )
                         }}
                     </form.Field>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <form.Field name="latitude">
-                            {(f) => {
-                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel>Latitude</FieldLabel>
-                                        <Input
-                                            type="number"
-                                            step="any"
-                                            value={f.state.value}
-                                            onBlur={f.handleBlur}
-                                            onChange={(e) => f.handleChange(toFloat(e))}
-                                            placeholder="Latitude"
-                                        />
-                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
-                                    </Field>
-                                )
-                            }}
-                        </form.Field>
-                        <form.Field name="longitude">
-                            {(f) => {
-                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel>Longitude</FieldLabel>
-                                        <Input
-                                            type="number"
-                                            step="any"
-                                            value={f.state.value}
-                                            onBlur={f.handleBlur}
-                                            onChange={(e) => f.handleChange(toFloat(e))}
-                                            placeholder="Longitude"
-                                        />
-                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
-                                    </Field>
-                                )
-                            }}
-                        </form.Field>
-                    </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <form.Field name="settings.minFreqHz">

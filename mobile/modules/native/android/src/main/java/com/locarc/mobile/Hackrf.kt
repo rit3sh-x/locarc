@@ -76,10 +76,23 @@ class Hackrf internal constructor(
 
     @Throws(UsbException::class)
     fun startRX(): ArrayBlockingQueue<ByteArray> {
-        if (usbThread?.isAlive == true) {
-            Log.w(LOG_TAG, "startRX called while already transceiving.")
-            return queue
+        val previous = usbThread
+        if (previous != null && previous.isAlive) {
+            Log.w(LOG_TAG, "startRX: waiting for previous receive loop to terminate")
+            try {
+                if (transceiverMode != HACKRF_TRANSCEIVER_MODE_OFF) {
+                    setTransceiverMode(HACKRF_TRANSCEIVER_MODE_OFF)
+                }
+                queue.poll()
+                previous.join(JOIN_TIMEOUT_MS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+            if (previous.isAlive) {
+                throw UsbException("startRX: previous receive loop did not terminate in time")
+            }
         }
+        usbThread = null
         queue.clear()
         setTransceiverMode(HACKRF_TRANSCEIVER_MODE_RECEIVE)
         usbThread = Thread(this).apply { start() }
@@ -90,8 +103,22 @@ class Hackrf internal constructor(
 
     @Throws(UsbException::class)
     fun stop() {
-        setTransceiverMode(HACKRF_TRANSCEIVER_MODE_OFF)
-        usbThread?.interrupt()
+        if (transceiverMode != HACKRF_TRANSCEIVER_MODE_OFF) {
+            setTransceiverMode(HACKRF_TRANSCEIVER_MODE_OFF)
+        }
+        val t = usbThread
+        if (t != null && t.isAlive) {
+            queue.poll()
+            try {
+                t.join(JOIN_TIMEOUT_MS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+            if (t.isAlive) {
+                Log.w(LOG_TAG, "stop: receive loop did not terminate within ${JOIN_TIMEOUT_MS}ms")
+            }
+        }
+        usbThread = null
     }
 
     fun close() {
@@ -122,6 +149,20 @@ class Hackrf internal constructor(
     }
 
     @Throws(UsbException::class)
+    fun setBasebandFilterBandwidth(bandwidth: Int): Boolean {
+        val len = sendUsbRequest(
+            UsbConstants.USB_DIR_OUT,
+            HACKRF_VENDOR_REQUEST_BASEBAND_FILTER_BANDWIDTH_SET,
+            value = bandwidth and 0xffff,
+            index = (bandwidth shr 16) and 0xffff
+        )
+        if (len != 0) {
+            throw UsbException("setBasebandFilterBandwidth: USB transfer failed. Result: $len")
+        }
+        return true
+    }
+
+    @Throws(UsbException::class)
     fun setFrequency(frequency: Long): Boolean {
         val mhz = (frequency / 1_000_000L).toInt()
         val hz = (frequency % 1_000_000L).toInt()
@@ -144,12 +185,17 @@ class Hackrf internal constructor(
 
     @Throws(UsbException::class)
     fun setLnaGain(gainDb: Int): Boolean {
+        val clamped = gainDb.coerceIn(0, 40)
+        val quantized = clamped - (clamped % 8)
+        if (quantized != gainDb) {
+            Log.w(LOG_TAG, "setLnaGain: requested $gainDb dB, using $quantized dB (must be 0..40 in steps of 8)")
+        }
         val retVal = ByteArray(1)
         val len = sendUsbRequest(
             UsbConstants.USB_DIR_IN,
             HACKRF_VENDOR_REQUEST_SET_LNA_GAIN,
             value = 0,
-            index = gainDb,
+            index = quantized,
             buffer = retVal
         )
         if (len != 1) {
@@ -164,12 +210,17 @@ class Hackrf internal constructor(
 
     @Throws(UsbException::class)
     fun setVgaGain(gainDb: Int): Boolean {
+        val clamped = gainDb.coerceIn(0, 62)
+        val quantized = clamped - (clamped % 2)
+        if (quantized != gainDb) {
+            Log.w(LOG_TAG, "setVgaGain: requested $gainDb dB, using $quantized dB (must be 0..62 in steps of 2)")
+        }
         val retVal = ByteArray(1)
         val len = sendUsbRequest(
             UsbConstants.USB_DIR_IN,
             HACKRF_VENDOR_REQUEST_SET_VGA_GAIN,
             value = 0,
-            index = gainDb,
+            index = quantized,
             buffer = retVal
         )
 
@@ -346,6 +397,7 @@ class Hackrf internal constructor(
         private const val LOG_TAG = "hackrf_android"
         private const val NUM_USB_REQUESTS = 4
         private const val DEFAULT_PACKET_SIZE_BYTES = 1024 * 256
+        private const val JOIN_TIMEOUT_MS = 2000L
 
         const val HACKRF_TRANSCEIVER_MODE_OFF = 0
         const val HACKRF_TRANSCEIVER_MODE_RECEIVE = 1
@@ -353,8 +405,24 @@ class Hackrf internal constructor(
 
         private const val HACKRF_VENDOR_REQUEST_SET_TRANSCEIVER_MODE = 1
         private const val HACKRF_VENDOR_REQUEST_SAMPLE_RATE_SET = 6
+        private const val HACKRF_VENDOR_REQUEST_BASEBAND_FILTER_BANDWIDTH_SET = 7
         private const val HACKRF_VENDOR_REQUEST_SET_FREQ = 16
         private const val HACKRF_VENDOR_REQUEST_SET_LNA_GAIN = 19
         private const val HACKRF_VENDOR_REQUEST_SET_VGA_GAIN = 20
+
+        private val SUPPORTED_BASEBAND_BANDWIDTHS = intArrayOf(
+            1_750_000, 2_500_000, 3_500_000, 5_000_000, 5_500_000,
+            6_000_000, 7_000_000, 8_000_000, 9_000_000, 10_000_000,
+            12_000_000, 14_000_000, 15_000_000, 20_000_000, 24_000_000, 28_000_000
+        )
+
+        fun computeBasebandFilterBandwidth(sampRate: Int): Int {
+            var bandwidth = SUPPORTED_BASEBAND_BANDWIDTHS[0]
+            for (candidate in SUPPORTED_BASEBAND_BANDWIDTHS) {
+                if (sampRate < candidate) break
+                bandwidth = candidate
+            }
+            return bandwidth
+        }
     }
 }

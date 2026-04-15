@@ -19,7 +19,7 @@ build-apk:
 
 release: build-apk
 
-deploy: install prebuild build-apk
+deploy: prebuild build-apk
 	@echo "✓ Full deploy complete — APK at $(APK_DEST)"
 
 clean:

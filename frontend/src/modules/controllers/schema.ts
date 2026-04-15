@@ -8,8 +8,6 @@ export const editControllerSchema = z.object({
     password: z
         .string()
         .refine((v) => v === '' || v.length >= 8, 'Password must be at least 8 characters'),
-    latitude: z.number().min(-90).max(90),
-    longitude: z.number().min(-180).max(180),
     settings: z.object({
         minFreqHz: z.number().positive(),
         maxFreqHz: z.number().positive(),

@@ -52,6 +52,7 @@ export function useHackrf() {
     const [status, setStatus] = useState<HackrfStatus>('idle')
     const [error, setError] = useState<string | null>(null)
     const [lastJobId, setLastJobId] = useState<string | null>(null)
+    const [hackrfConnected, setHackrfConnected] = useState(false)
 
     const processedJobRef = useRef<string | null>(null)
     const busyRef = useRef(false)
@@ -59,6 +60,31 @@ export function useHackrf() {
     const controller = useQuery(api.public.controller.getController)
     const latestJob = useQuery(api.public.controller.getLatestJob)
     const submitMeasurements = useMutation(api.public.controller.submitMeasurements)
+
+    useEffect(() => {
+        let mounted = true
+
+        HackrfModule.isConnected()
+            .then((c) => {
+                if (mounted) setHackrfConnected(c)
+            })
+            .catch(() => {
+                if (mounted) setHackrfConnected(false)
+            })
+
+        const attachSub = HackrfModule.addListener('onHackrfAttached', () => {
+            setHackrfConnected(true)
+        })
+        const detachSub = HackrfModule.addListener('onHackrfDetached', () => {
+            setHackrfConnected(false)
+        })
+
+        return () => {
+            mounted = false
+            attachSub.remove()
+            detachSub.remove()
+        }
+    }, [])
 
     const runScan = useCallback(
         async (
@@ -153,5 +179,5 @@ export function useHackrf() {
         }
     }, [controller, latestJob, runScan])
 
-    return { status, error, lastJobId, controller }
+    return { status, error, lastJobId, controller, hackrfConnected }
 }

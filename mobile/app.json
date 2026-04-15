@@ -35,7 +35,8 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "./plugins/with-hackrf-usb"
     ],
     "experiments": {
       "typedRoutes": true,
