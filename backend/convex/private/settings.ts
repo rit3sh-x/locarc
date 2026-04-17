@@ -24,7 +24,7 @@ export const DEFAULT_SETTINGS = {
         kaiserBetaP1: 60,
         lpfOrder: 2,
         lpfCutoff: 0.03,
-        noiseMinPeaksP2: 5,
+        noiseMinPeaksP2: 25,
         noiseMaxDiffP2: 10,
     },
     phase3: {
@@ -33,8 +33,10 @@ export const DEFAULT_SETTINGS = {
         sigBwPowHz: 5_000,
         maxThPow: 0.4,
         kaiserBetaPow: 60,
-        noiseMinPeaksPow: 2,
+        noiseMinPeaksPow: 15,
         noiseMaxDiffPow: 10,
+        powerCalOffsetDb: -90,
+        dcGuardHz: 12_500,
     },
     channelMapping: {
         bandStartFreqHz: 300_000_000,
@@ -48,6 +50,9 @@ export const DEFAULT_SETTINGS = {
         ptSearchRangeMaxDbm: 43.0,
         ptSearchStepDbm: 0.5,
         powerErrorRangeDb: 3.0,
+        channelBinHz: 12_500,
+        minControllersPerChannel: 3,
+        minPeakDbm: -110,
     },
 };
 
@@ -131,6 +136,8 @@ export const update = mutation({
                 kaiserBetaPow: v.optional(v.number()),
                 noiseMinPeaksPow: v.optional(v.number()),
                 noiseMaxDiffPow: v.optional(v.number()),
+                powerCalOffsetDb: v.optional(v.number()),
+                dcGuardHz: v.optional(v.number()),
             })
         ),
         channelMapping: v.optional(
@@ -150,6 +157,9 @@ export const update = mutation({
                 ptSearchRangeMaxDbm: v.optional(v.number()),
                 ptSearchStepDbm: v.optional(v.number()),
                 powerErrorRangeDb: v.optional(v.number()),
+                channelBinHz: v.optional(v.number()),
+                minControllersPerChannel: v.optional(v.number()),
+                minPeakDbm: v.optional(v.number()),
             })
         ),
     },

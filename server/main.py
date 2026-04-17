@@ -41,64 +41,120 @@ def bounds_to_corners(bounds, ref_lat: float, ref_lon: float) -> list[BoundPoint
         for lat, lon in [xy_to_gps(x, y, ref_lat, ref_lon)]
     ]
 
-def _aggregate_power_dbm(samples: list) -> float:
-    linear = [10 ** (s.powerDbm / 10) for s in samples]
-    return 10 * np.log10(np.mean(linear))
+def _peak_power_dbm(samples: list) -> float:
+    """Take the strongest (max) reading among samples at the same channel.
+
+    Mobile may emit multiple phase3 integrations for the same channel within
+    a single scan; the strongest represents the cleanest LOS observation.
+    Mean-of-linear dilutes that with weaker frames and biases path-loss
+    inversion toward longer distances.
+    """
+    return max(s.powerDbm for s in samples)
+
+
+def _group_by_channel(
+    payload: JobPayload, bin_hz: float
+) -> dict[float, dict[str, float]]:
+    """
+    channel_hz -> { controllerId -> aggregated powerDbm }
+
+    All samples are snapped onto the channel grid so the same transmitter
+    observed by different receivers (with small frequency offsets) buckets
+    to a single key. Per (channel, controller) we keep the peak reading.
+    """
+    by_ch: dict[float, dict[str, list]] = {}
+    ctrl_ids = {c.controllerId for c in payload.controllers}
+
+    for m in payload.measurements:
+        if m.controllerId not in ctrl_ids:
+            continue
+        for s in m.samples:
+            ch = round(s.frequencyHz / bin_hz) * bin_hz
+            by_ch.setdefault(ch, {}).setdefault(m.controllerId, []).append(s)
+
+    return {
+        ch: {cid: _peak_power_dbm(lst) for cid, lst in ctrl_map.items()}
+        for ch, ctrl_map in by_ch.items()
+    }
+
 
 def run_localization(payload: JobPayload) -> list[LocationResult]:
     if len(payload.controllers) < 3:
         raise ValueError("Need ≥3 receivers for localization")
 
     ctrl_map = {c.controllerId: c for c in payload.controllers}
-
-    power_by_ctrl = {
-        m.controllerId: _aggregate_power_dbm(m.samples)
-        for m in payload.measurements
-        if m.controllerId in ctrl_map and m.samples
-    }
-
-    if len(power_by_ctrl) < 3:
-        raise ValueError(
-            f"Only {len(power_by_ctrl)} active receivers — need ≥3")
-
-    ctrl_ids = list(power_by_ctrl.keys())
-    lats = [ctrl_map[cid].latitude for cid in ctrl_ids]
-    lons = [ctrl_map[cid].longitude for cid in ctrl_ids]
-    ref_lat, ref_lon = float(np.mean(lats)), float(np.mean(lons))
-
-    receivers_xy = np.array([
-        gps_to_xy(ctrl_map[cid].latitude, ctrl_map[cid].longitude,
-                  ref_lat, ref_lon)
-        for cid in ctrl_ids
-    ])
-    powers = np.array([power_by_ctrl[cid] for cid in ctrl_ids])
-
     loc_cfg = payload.localizationConfig or PayloadLocConfig()
+
     cfg = LocalizationConfig(
         path_loss_exponent=loc_cfg.pathLossExponent,
         pt_min_dbm=loc_cfg.ptSearchRangeMinDbm,
         pt_max_dbm=loc_cfg.ptSearchRangeMaxDbm,
         pt_step_dbm=loc_cfg.ptSearchStepDbm,
     )
-
     algo = loc_cfg.algorithm
-    if algo == "annulus":
-        est_xy, bounds = localize_annulus(receivers_xy, powers, cfg)
-    else:
-        est_xy, bounds = localize_circle(receivers_xy, powers, cfg)
 
-    center_lat, center_lon = xy_to_gps(est_xy[0], est_xy[1], ref_lat, ref_lon)
-    bound_pts = bounds_to_corners(bounds, ref_lat, ref_lon)
-
+    by_channel = _group_by_channel(payload, loc_cfg.channelBinHz)
     log.info(
-        "Localized batch=%s algo=%s → (%.6f, %.6f)",
-        payload.batchId, algo, center_lat, center_lon,
+        "batch=%s channels=%d controllers=%d",
+        payload.batchId, len(by_channel), len(ctrl_map),
     )
-    return [LocationResult(
-        centerLatitude=center_lat,
-        centerLongitude=center_lon,
-        bounds=bound_pts,
-    )]
+
+    results: list[LocationResult] = []
+
+    for channel_hz in sorted(by_channel):
+        power_by_ctrl = by_channel[channel_hz]
+        if len(power_by_ctrl) < loc_cfg.minControllersPerChannel:
+            continue
+        if max(power_by_ctrl.values()) < loc_cfg.minPeakDbm:
+            continue
+
+        ctrl_ids = list(power_by_ctrl.keys())
+        lats = [ctrl_map[cid].latitude for cid in ctrl_ids]
+        lons = [ctrl_map[cid].longitude for cid in ctrl_ids]
+        ref_lat, ref_lon = float(np.mean(lats)), float(np.mean(lons))
+
+        receivers_xy = np.array([
+            gps_to_xy(ctrl_map[cid].latitude, ctrl_map[cid].longitude,
+                      ref_lat, ref_lon)
+            for cid in ctrl_ids
+        ])
+        powers = np.array([power_by_ctrl[cid] for cid in ctrl_ids])
+
+        try:
+            if algo == "annulus":
+                est_xy, bounds = localize_annulus(receivers_xy, powers, cfg)
+            else:
+                est_xy, bounds = localize_circle(receivers_xy, powers, cfg)
+        except Exception as exc:
+            log.warning(
+                "channel=%.3f MHz localize failed: %s",
+                channel_hz / 1e6, exc,
+            )
+            continue
+
+        center_lat, center_lon = xy_to_gps(est_xy[0], est_xy[1], ref_lat, ref_lon)
+        bound_pts = bounds_to_corners(bounds, ref_lat, ref_lon)
+
+        log.info(
+            "batch=%s ch=%.4f MHz rx=%d → (%.6f, %.6f)",
+            payload.batchId, channel_hz / 1e6, len(ctrl_ids),
+            center_lat, center_lon,
+        )
+
+        results.append(LocationResult(
+            centerLatitude=center_lat,
+            centerLongitude=center_lon,
+            bounds=bound_pts,
+            frequencyHz=channel_hz,
+            controllerCount=len(ctrl_ids),
+        ))
+
+    if not results:
+        raise ValueError(
+            f"No channel observed by ≥{loc_cfg.minControllersPerChannel} controllers "
+            f"with peak ≥{loc_cfg.minPeakDbm} dBm"
+        )
+    return results
 
 async def post_callback(url: str, body: CallbackPayload) -> None:
     raw_body = body.model_dump_json()

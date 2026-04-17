@@ -162,6 +162,7 @@ export const update = mutation({
                 vgaGain: v.optional(v.number()),
                 lnaGain: v.optional(v.number()),
                 bufferSize: v.optional(v.number()),
+                powerCalOffsetDbOverride: v.optional(v.number()),
             })
         ),
     },
@@ -450,6 +451,8 @@ export const getMany = query({
                         vgaGain: controller.vgaGain,
                         lnaGain: controller.lnaGain,
                         bufferSize: controller.bufferSize,
+                        powerCalOffsetDbOverride:
+                            controller.powerCalOffsetDbOverride,
                     },
                 })),
         };

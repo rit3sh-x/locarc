@@ -109,15 +109,17 @@ export const SettingsForm = ({
             'phase2.kaiserBetaP1': initialValues.phase2.kaiserBetaP1 ?? 60,
             'phase2.lpfOrder': initialValues.phase2.lpfOrder ?? 2,
             'phase2.lpfCutoff': initialValues.phase2.lpfCutoff ?? 0.03,
-            'phase2.noiseMinPeaksP2': initialValues.phase2.noiseMinPeaksP2 ?? 5,
+            'phase2.noiseMinPeaksP2': initialValues.phase2.noiseMinPeaksP2 ?? 25,
             'phase2.noiseMaxDiffP2': initialValues.phase2.noiseMaxDiffP2 ?? 10,
             'phase3.priorKnowledgeBwHz': initialValues.phase3.priorKnowledgeBwHz ?? 10_000,
             'phase3.zoomFsPowerHz': initialValues.phase3.zoomFsPowerHz ?? 50_000,
             'phase3.sigBwPowHz': initialValues.phase3.sigBwPowHz ?? 5_000,
             'phase3.maxThPow': initialValues.phase3.maxThPow ?? 0.4,
             'phase3.kaiserBetaPow': initialValues.phase3.kaiserBetaPow ?? 60,
-            'phase3.noiseMinPeaksPow': initialValues.phase3.noiseMinPeaksPow ?? 2,
+            'phase3.noiseMinPeaksPow': initialValues.phase3.noiseMinPeaksPow ?? 15,
             'phase3.noiseMaxDiffPow': initialValues.phase3.noiseMaxDiffPow ?? 10,
+            'phase3.powerCalOffsetDb': initialValues.phase3.powerCalOffsetDb ?? -90,
+            'phase3.dcGuardHz': initialValues.phase3.dcGuardHz ?? 12_500,
             'channelMapping.bandStartFreqHz':
                 initialValues.channelMapping.bandStartFreqHz ?? 300_000_000,
             'channelMapping.bandEndFreqHz':
@@ -132,6 +134,10 @@ export const SettingsForm = ({
                 initialValues.localization.ptSearchRangeMaxDbm ?? 43.0,
             'localization.ptSearchStepDbm': initialValues.localization.ptSearchStepDbm ?? 0.5,
             'localization.powerErrorRangeDb': initialValues.localization.powerErrorRangeDb ?? 3.0,
+            'localization.channelBinHz': initialValues.localization.channelBinHz ?? 12_500,
+            'localization.minControllersPerChannel':
+                initialValues.localization.minControllersPerChannel ?? 3,
+            'localization.minPeakDbm': initialValues.localization.minPeakDbm ?? -110,
         },
         onSubmit: async ({ value }) => {
             await onSubmit({
@@ -167,6 +173,8 @@ export const SettingsForm = ({
                     kaiserBetaPow: value['phase3.kaiserBetaPow'],
                     noiseMinPeaksPow: value['phase3.noiseMinPeaksPow'],
                     noiseMaxDiffPow: value['phase3.noiseMaxDiffPow'],
+                    powerCalOffsetDb: value['phase3.powerCalOffsetDb'],
+                    dcGuardHz: value['phase3.dcGuardHz'],
                 },
                 channelMapping: {
                     bandStartFreqHz: value['channelMapping.bandStartFreqHz'],
@@ -180,6 +188,9 @@ export const SettingsForm = ({
                     ptSearchRangeMaxDbm: value['localization.ptSearchRangeMaxDbm'],
                     ptSearchStepDbm: value['localization.ptSearchStepDbm'],
                     powerErrorRangeDb: value['localization.powerErrorRangeDb'],
+                    channelBinHz: value['localization.channelBinHz'],
+                    minControllersPerChannel: value['localization.minControllersPerChannel'],
+                    minPeakDbm: value['localization.minPeakDbm'],
                 },
             })
         },
@@ -194,7 +205,6 @@ export const SettingsForm = ({
             className="flex flex-col"
         >
             <Accordion type="multiple" defaultValue={['phase1']}>
-                {/* Phase 1 — Coarse Detection */}
                 <SettingsSection
                     value="phase1"
                     title="Coarse Detection"
@@ -255,7 +265,6 @@ export const SettingsForm = ({
                     </form.Field>
                 </SettingsSection>
 
-                {/* Phase 2 — Fine Detection */}
                 <SettingsSection
                     value="phase2"
                     title="Fine Detection"
@@ -298,12 +307,11 @@ export const SettingsForm = ({
                     </form.Field>
                 </SettingsSection>
 
-                {/* Phase 3 — Power Measurement */}
                 <SettingsSection
                     value="phase3"
                     title="Power Measurement"
                     description="Phase 3 — High-resolution power estimation per detected signal"
-                    fieldCount={7}
+                    fieldCount={9}
                 >
                     <form.Field name="phase3.priorKnowledgeBwHz">
                         {(field) => (
@@ -332,9 +340,28 @@ export const SettingsForm = ({
                     <form.Field name="phase3.noiseMaxDiffPow">
                         {(field) => <NumericField field={field} label="Noise Max Diff" unit="dB" />}
                     </form.Field>
+                    <form.Field name="phase3.powerCalOffsetDb">
+                        {(field) => (
+                            <NumericField
+                                field={field}
+                                label="Power Calibration Offset"
+                                unit="dB"
+                                description="Maps ADC dBFS → RF dBm; tune per LNA/VGA gain"
+                            />
+                        )}
+                    </form.Field>
+                    <form.Field name="phase3.dcGuardHz">
+                        {(field) => (
+                            <NumericField
+                                field={field}
+                                label="DC Guard"
+                                unit="Hz"
+                                description="Reject peaks within ±this distance of the LO"
+                            />
+                        )}
+                    </form.Field>
                 </SettingsSection>
 
-                {/* Channel Mapping */}
                 <SettingsSection
                     value="channelMapping"
                     title="Channel Mapping"
@@ -354,12 +381,11 @@ export const SettingsForm = ({
                     </form.Field>
                 </SettingsSection>
 
-                {/* Localization */}
                 <SettingsSection
                     value="localization"
                     title="Localization"
                     description="Transmitter position estimation from multi-controller power readings"
-                    fieldCount={6}
+                    fieldCount={9}
                 >
                     <form.Field name="localization.algorithm">
                         {(field) => (
@@ -419,12 +445,40 @@ export const SettingsForm = ({
                             />
                         )}
                     </form.Field>
+                    <form.Field name="localization.channelBinHz">
+                        {(field) => (
+                            <NumericField
+                                field={field}
+                                label="Channel Bin"
+                                unit="Hz"
+                                description="Grid used to group measurements by frequency"
+                            />
+                        )}
+                    </form.Field>
+                    <form.Field name="localization.minControllersPerChannel">
+                        {(field) => (
+                            <NumericField
+                                field={field}
+                                label="Min Controllers / Channel"
+                                description="Minimum receivers observing a channel to localize"
+                            />
+                        )}
+                    </form.Field>
+                    <form.Field name="localization.minPeakDbm">
+                        {(field) => (
+                            <NumericField
+                                field={field}
+                                label="Min Peak Power"
+                                unit="dBm"
+                                description="Reject channels whose strongest reading is weaker"
+                            />
+                        )}
+                    </form.Field>
                 </SettingsSection>
             </Accordion>
 
             <Separator className="mt-2" />
 
-            {/* Actions */}
             <div className="flex items-center justify-end gap-3 pt-4">
                 <Button
                     type="button"

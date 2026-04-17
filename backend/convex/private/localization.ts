@@ -50,6 +50,8 @@ type StreamResult = {
             longitude: number;
             latitude: number;
         }[];
+        frequencyHz?: number;
+        controllerCount?: number;
     }[];
     controllers: {
         id: Id<"controller">;
@@ -109,6 +111,8 @@ export const stream = query({
                     longitude: bound.longitudeE6 / LOCATION_MULTIPLIER,
                     latitude: bound.latitudeE6 / LOCATION_MULTIPLIER,
                 })),
+                frequencyHz: location.frequencyHz,
+                controllerCount: location.controllerCount,
             })),
             controllers: controllersResult,
         };

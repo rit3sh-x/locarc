@@ -225,6 +225,8 @@ export const processWebhookResults = internalMutation({
                         latitude: v.number(),
                     })
                 ),
+                frequencyHz: v.optional(v.number()),
+                controllerCount: v.optional(v.number()),
             })
         ),
     },
@@ -277,6 +279,8 @@ export const processWebhookResults = internalMutation({
                     longitudeE6: Math.round(b.longitude * LOCATION_MULTIPLIER),
                     latitudeE6: Math.round(b.latitude * LOCATION_MULTIPLIER),
                 })),
+                frequencyHz: loc.frequencyHz,
+                controllerCount: loc.controllerCount,
             });
         }
 

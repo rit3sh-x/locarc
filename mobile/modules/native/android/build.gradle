@@ -37,3 +37,7 @@ android {
     abortOnError false
   }
 }
+
+dependencies {
+  implementation "com.github.wendykierp:JTransforms:3.2"
+}

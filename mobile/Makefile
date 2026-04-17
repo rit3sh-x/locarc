@@ -7,7 +7,7 @@ install:
 	pnpm install
 
 prebuild:
-	pnpm run prebuild:android
+	pnpm run prebuild:android --clean
 
 debug:
 	pnpm run android

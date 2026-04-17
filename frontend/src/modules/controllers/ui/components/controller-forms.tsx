@@ -113,6 +113,7 @@ export function EditControllerModal({
                 vgaGain: controller.settings.vgaGain,
                 lnaGain: controller.settings.lnaGain,
                 bufferSize: controller.settings.bufferSize,
+                powerCalOffsetDbOverride: controller.settings.powerCalOffsetDbOverride,
             },
         },
         validators: { onSubmit: editControllerSchema },
@@ -307,6 +308,29 @@ export function EditControllerModal({
                                             onBlur={f.handleBlur}
                                             onChange={(e) => f.handleChange(toFloat(e))}
                                             placeholder="LNA gain"
+                                        />
+                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
+                                    </Field>
+                                )
+                            }}
+                        </form.Field>
+                        <form.Field name="settings.powerCalOffsetDbOverride">
+                            {(f) => {
+                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
+                                const raw = f.state.value
+                                return (
+                                    <Field data-invalid={isInvalid}>
+                                        <FieldLabel>Power Cal Offset (dB, per-device)</FieldLabel>
+                                        <Input
+                                            type="number"
+                                            step="any"
+                                            value={raw ?? ''}
+                                            onBlur={f.handleBlur}
+                                            onChange={(e) => {
+                                                const v = e.target.value
+                                                f.handleChange(v === '' ? undefined : Number(v))
+                                            }}
+                                            placeholder="Blank = use org default"
                                         />
                                         {isInvalid && <FieldError errors={f.state.meta.errors} />}
                                     </Field>

@@ -108,7 +108,7 @@ class Hackrf internal constructor(
         }
         val t = usbThread
         if (t != null && t.isAlive) {
-            queue.poll()
+            while (queue.poll() != null) {}
             try {
                 t.join(JOIN_TIMEOUT_MS)
             } catch (_: InterruptedException) {
@@ -119,6 +119,11 @@ class Hackrf internal constructor(
             }
         }
         usbThread = null
+        try {
+            Thread.sleep(USB_QUIESCE_MS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
     }
 
     fun close() {
@@ -398,6 +403,7 @@ class Hackrf internal constructor(
         private const val NUM_USB_REQUESTS = 4
         private const val DEFAULT_PACKET_SIZE_BYTES = 1024 * 256
         private const val JOIN_TIMEOUT_MS = 2000L
+        private const val USB_QUIESCE_MS = 80L
 
         const val HACKRF_TRANSCEIVER_MODE_OFF = 0
         const val HACKRF_TRANSCEIVER_MODE_RECEIVE = 1

@@ -1,5 +1,6 @@
 package com.locarc.mobile.algorithms
 
+import android.util.Log
 import kotlin.math.abs
 import kotlin.math.log10
 import kotlin.math.round
@@ -10,6 +11,10 @@ class SpectrumAnalyzer(
     private val bbSampleRate: Double,
     private val config: AlgoConfig = AlgoConfig()
 ) {
+    companion object {
+        private const val TAG = "SpectrumAnalyzer"
+    }
+
     data class PowerMeasurement(val frequency: Double, val powerDbm: Double)
 
     private data class ZoomPkResult(
@@ -19,9 +24,17 @@ class SpectrumAnalyzer(
     )
 
     fun analyzeSpectrum(iqData: Array<Complex>): List<PowerMeasurement> {
+        Log.d(TAG, "analyzeSpectrum: ${iqData.size} samples @ ${centerFreqHz / 1e6} MHz fs=${bbSampleRate / 1e6} MHz")
         val globalFrequencies = detectGlobalFrequencies(iqData)
-        val uniqueFrequencies = globalFrequencies.distinct().sorted()
-        return measurePower(iqData, uniqueFrequencies)
+        val gridHz = config.channelMapping.channelSpacingMapHz
+        val uniqueFrequencies = globalFrequencies
+            .map { kotlin.math.round(it / gridHz) * gridHz }
+            .distinct()
+            .sorted()
+        Log.d(TAG, "analyzeSpectrum: ${uniqueFrequencies.size} unique candidates after phase1/phase2")
+        val measurements = measurePower(iqData, uniqueFrequencies)
+        Log.d(TAG, "analyzeSpectrum: ${measurements.size} measurements after phase3")
+        return measurements
     }
 
 
@@ -52,14 +65,18 @@ class SpectrumAnalyzer(
 
         val (_, peakPowers, peakFrequencies) = whAvgFftZoomPk(
             frames, zoomK, numSamUseM, numFragments,
-            frequencyAxisZoom, p1.sigBwHz, p1.maxTh, sumW3
+            frequencyAxisZoom, p1.sigBwHz, p1.maxTh, sumW3,
+            label = "phase1"
         )
 
         val globalFreqs = mutableListOf<Double>()
 
         if (isNoisySpectrum(peakPowers, p1.noiseMaxDiff, p1.noiseMinPeaks)) {
+            Log.d(TAG, "phase1: spectrum flagged noisy (${peakPowers.size} peaks) → skipping")
             return globalFreqs
         }
+
+        Log.d(TAG, "phase1: ${peakFrequencies.size} candidate peaks")
 
 
         for (nPeaks in peakFrequencies.indices) {
@@ -90,16 +107,24 @@ class SpectrumAnalyzer(
 
             val (_, peakPowersP1, peakFreqsP1) = whAvgFftZoomPk(
                 framesP1, zoomKP1, numSamP1, numFragsP1,
-                freqAxisP1, p2.sigBwP1Hz, p2.maxThP1, sumW3P1
+                freqAxisP1, p2.sigBwP1Hz, p2.maxThP1, sumW3P1,
+                label = "phase2"
             )
 
-            if (!isNoisySpectrum(peakPowersP1, p2.noiseMaxDiffP2, p2.noiseMinPeaksP2)) {
+            val noisy = isNoisySpectrum(peakPowersP1, p2.noiseMaxDiffP2, p2.noiseMinPeaksP2)
+            if (!noisy) {
+                val dcGuardHz = config.phase3.dcGuardHz
                 for (idx in peakFreqsP1.indices) {
-                    globalFreqs.add(centerFreqHz + freq1 + peakFreqsP1[idx])
+                    val offsetFromCenter = freq1 + peakFreqsP1[idx]
+                    if (kotlin.math.abs(offsetFromCenter) < dcGuardHz) continue
+                    globalFreqs.add(centerFreqHz + offsetFromCenter)
                 }
+            } else {
+                Log.d(TAG, "phase2[$nPeaks]: noisy (${peakPowersP1.size} peaks) → skipping")
             }
         }
 
+        Log.d(TAG, "phase2: accumulated ${globalFreqs.size} global frequencies")
         return globalFreqs
     }
 
@@ -142,10 +167,12 @@ class SpectrumAnalyzer(
 
             val (fftAvgPow, peakPowersPow, peakFreqsPow) = whAvgFftZoomPk(
                 framesPow, zoomKPow, numSamPow, numFragsPow,
-                freqAxisPow, p3.sigBwPowHz, p3.maxThPow, sumW3Pow
+                freqAxisPow, p3.sigBwPowHz, p3.maxThPow, sumW3Pow,
+                label = "phase3"
             )
 
             if (isNoisySpectrum(peakPowersPow, p3.noiseMaxDiffPow, p3.noiseMinPeaksPow)) {
+                Log.d(TAG, "phase3[$peakFreqAbs Hz]: noisy → drop")
                 continue
             }
 
@@ -178,10 +205,18 @@ class SpectrumAnalyzer(
             }
 
             if (powerWatts > 0) {
-                val powerDbm = 10.0 * log10(powerWatts / 0.001)
+                val powerDbm = 10.0 * log10(powerWatts / 0.001) + p3.powerCalOffsetDb
                 results.add(PowerMeasurement(finalCorrectedFreq, powerDbm))
             }
         }
+
+        val best = LinkedHashMap<Double, PowerMeasurement>()
+        for (m in results) {
+            val prev = best[m.frequency]
+            if (prev == null || m.powerDbm > prev.powerDbm) best[m.frequency] = m
+        }
+        results.clear()
+        results.addAll(best.values)
 
         return results
     }
@@ -195,7 +230,8 @@ class SpectrumAnalyzer(
         frequencyAxis: DoubleArray,
         sigBw: Double,
         maxTh: Double,
-        sumW3: Double
+        sumW3: Double,
+        label: String = ""
     ): ZoomPkResult {
         val totalFftSize = numSamples * zoomK
         val paddedSize = FftEngine.nextPowerOf2(totalFftSize)
@@ -231,6 +267,12 @@ class SpectrumAnalyzer(
         val peakPowers = locs.map { effectiveDb[it] }
         val peakFrequencies = locs.map { frequencyAxis[it] }
 
+        Log.d(
+            TAG,
+            "whAvgFftZoomPk[$label]: framesUsed=$framesToUse maxDb=${"%.2f".format(maxDb)} " +
+                    "thresh=${"%.2f".format(threshold)} dist=$distance peaks=${locs.size}"
+        )
+
         return ZoomPkResult(fftSum, peakPowers, peakFrequencies)
     }
 
@@ -244,17 +286,12 @@ class SpectrumAnalyzer(
         return cm.bandStartFreqHz + (channelIndex - 1.0) * cm.channelSpacingMapHz
     }
 
+    @Suppress("UNUSED_PARAMETER")
     private fun isNoisySpectrum(
         peakPowers: List<Double>,
         threshold: Double,
         minPeaks: Int
     ): Boolean {
-        if (peakPowers.size < minPeaks || peakPowers.size < 2) return false
-
-        val diffs = (0 until peakPowers.size - 1).map {
-            abs(peakPowers[it + 1] - peakPowers[it])
-        }
-        val minDiff = diffs.minOrNull() ?: return false
-        return minDiff <= threshold
+        return peakPowers.size >= minPeaks
     }
 }

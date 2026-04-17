@@ -1,8 +1,7 @@
 import { ActivityIndicator, View } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Badge } from '@/components/ui/badge'
-
-type HackrfStatus = 'idle' | 'waiting' | 'scanning' | 'submitting' | 'done' | 'error'
+import type { HackrfStatus } from '../../types'
 
 const STATUS_CONFIG: Record<
     HackrfStatus,

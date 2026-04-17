@@ -4,49 +4,7 @@ import { api } from '@backend/api'
 import type { Id } from '@backend/dataModel'
 import HackrfModule from '~/native'
 import type { ScanSettings, AlgoSettings } from '~/native'
-
-type HackrfStatus = 'idle' | 'waiting' | 'scanning' | 'submitting' | 'done' | 'error'
-
-const DEFAULT_ALGO_SETTINGS: AlgoSettings = {
-    phase1: {
-        sigBwHz: 200_000,
-        chSpacingHz: 10_000,
-        perOlf: 0,
-        numSamUseRatio: 0.5,
-        maxTh: 0.09,
-        kaiserBeta: 36,
-        highpassOrder: 1,
-        highpassCutoff: 0.0001,
-        noiseMinPeaks: 10,
-        noiseMaxDiff: 10,
-    },
-    phase2: {
-        requiredFs1Hz: 200_000,
-        sigBwP1Hz: 10_000,
-        perOlfP1: 0,
-        numSamUseRatioP1: 0.5,
-        maxThP1: 0.4,
-        kaiserBetaP1: 60,
-        lpfOrder: 2,
-        lpfCutoff: 0.03,
-        noiseMinPeaksP2: 5,
-        noiseMaxDiffP2: 10,
-    },
-    phase3: {
-        priorKnowledgeBwHz: 10_000,
-        zoomFsPowerHz: 50_000,
-        sigBwPowHz: 5_000,
-        maxThPow: 0.4,
-        kaiserBetaPow: 60,
-        noiseMinPeaksPow: 2,
-        noiseMaxDiffPow: 10,
-    },
-    channelMapping: {
-        bandStartFreqHz: 300_000_000,
-        bandEndFreqHz: 500_000_000,
-        channelSpacingMapHz: 12_500,
-    },
-}
+import type { HackrfStatus } from '../types'
 
 export function useHackrf() {
     const [status, setStatus] = useState<HackrfStatus>('idle')
@@ -93,11 +51,17 @@ export function useHackrf() {
             algoSettings: AlgoSettings,
             cancelled: { current: boolean },
         ) => {
+            const startedAt = Date.now()
+            console.log(`[useHackrf] scan START ${batchId}`)
             try {
                 setStatus('scanning')
                 setError(null)
 
                 const measurements = await HackrfModule.runFullScan(settings, algoSettings)
+                console.log(
+                    `[useHackrf] scan RX: ${measurements.length} measurements in ${Date.now() - startedAt} ms`,
+                )
+
                 if (cancelled.current) return
 
                 if (measurements.length === 0) {
@@ -107,7 +71,6 @@ export function useHackrf() {
                 }
 
                 setStatus('submitting')
-
                 await submitMeasurements({
                     jobBatchId: batchId,
                     measurements: measurements.map((m) => ({
@@ -122,8 +85,9 @@ export function useHackrf() {
                 setError(null)
                 setStatus('done')
             } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err)
+                console.error(`[useHackrf] scan FAILED ${batchId}:`, msg)
                 if (!cancelled.current) {
-                    const msg = err instanceof Error ? err.message : String(err)
                     setError(msg)
                     setStatus('error')
                 }
@@ -152,7 +116,10 @@ export function useHackrf() {
             return
         }
 
-        if (processedJobRef.current === batchId || busyRef.current) {
+        if (processedJobRef.current === batchId || busyRef.current) return
+
+        if (!controller.algoSettings) {
+            console.warn('[useHackrf] controller has no algoSettings — skipping job')
             return
         }
 
@@ -170,9 +137,7 @@ export function useHackrf() {
             bufferSizeKb: controller.rfSettings.bufferSize,
         }
 
-        const algoSettings: AlgoSettings = controller.algoSettings ?? DEFAULT_ALGO_SETTINGS
-
-        runScan(batchId as Id<'jobBatch'>, settings, algoSettings, cancelled)
+        runScan(batchId as Id<'jobBatch'>, settings, controller.algoSettings, cancelled)
 
         return () => {
             cancelled.current = true

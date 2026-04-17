@@ -1,48 +1,26 @@
 package com.locarc.mobile.algorithms
 
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
+import org.jtransforms.fft.DoubleFFT_1D
 
 object FftEngine {
+
+    private val planCache = HashMap<Int, DoubleFFT_1D>()
+
+    private fun planFor(n: Int): DoubleFFT_1D =
+        synchronized(planCache) { planCache.getOrPut(n) { DoubleFFT_1D(n.toLong()) } }
+
     fun fftForward(data: Array<Complex>) {
         val n = data.size
-        require(n > 0 && (n and (n - 1)) == 0) { "FFT size must be a power of 2, got $n" }
+        require(n > 0) { "FFT size must be positive, got $n" }
 
-        var j = 0
-        for (i in 1 until n) {
-            var bit = n shr 1
-            while (j and bit != 0) {
-                j = j xor bit
-                bit = bit shr 1
-            }
-            j = j xor bit
-            if (i < j) {
-                val temp = data[i]
-                data[i] = data[j]
-                data[j] = temp
-            }
+        val buf = DoubleArray(2 * n)
+        for (i in 0 until n) {
+            buf[2 * i] = data[i].re
+            buf[2 * i + 1] = data[i].im
         }
-
-        var len = 2
-        while (len <= n) {
-            val halfLen = len / 2
-            val angle = -2.0 * PI / len
-            val wBase = Complex(cos(angle), sin(angle))
-
-            var i = 0
-            while (i < n) {
-                var w = Complex(1.0, 0.0)
-                for (k in 0 until halfLen) {
-                    val u = data[i + k]
-                    val t = w * data[i + k + halfLen]
-                    data[i + k] = u + t
-                    data[i + k + halfLen] = u - t
-                    w = w * wBase
-                }
-                i += len
-            }
-            len = len shl 1
+        planFor(n).complexForward(buf)
+        for (i in 0 until n) {
+            data[i] = Complex(buf[2 * i], buf[2 * i + 1])
         }
     }
 

@@ -22,6 +22,7 @@ export default defineSchema({
         vgaGain: v.number(),
         lnaGain: v.number(),
         bufferSize: v.number(),
+        powerCalOffsetDbOverride: v.optional(v.number()),
         updatedAt: v.number(),
     })
         .index("by_admin_id", ["adminId"])
@@ -95,6 +96,8 @@ export default defineSchema({
                 latitudeE6: v.number(),
             })
         ),
+        frequencyHz: v.optional(v.number()),
+        controllerCount: v.optional(v.number()),
     })
         .index("by_job_batch_id", ["jobBatchId"])
         .index("by_admin_id", ["adminId"])
@@ -134,6 +137,8 @@ export default defineSchema({
             kaiserBetaPow: v.number(),
             noiseMinPeaksPow: v.number(),
             noiseMaxDiffPow: v.number(),
+            powerCalOffsetDb: v.optional(v.number()),
+            dcGuardHz: v.optional(v.number()),
         }),
         channelMapping: v.object({
             bandStartFreqHz: v.number(),
@@ -147,6 +152,9 @@ export default defineSchema({
             ptSearchRangeMaxDbm: v.number(),
             ptSearchStepDbm: v.number(),
             powerErrorRangeDb: v.number(),
+            channelBinHz: v.optional(v.number()),
+            minControllersPerChannel: v.optional(v.number()),
+            minPeakDbm: v.optional(v.number()),
         }),
     })
         .index("by_org_slug", ["orgSlug"]),

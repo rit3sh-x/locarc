@@ -21,6 +21,9 @@ class LocalizationConfig(BaseModel):
     ptSearchRangeMaxDbm: float = 43.0
     ptSearchStepDbm: float = 0.5
     powerErrorRangeDb: float = 3.0
+    channelBinHz: float = 12_500.0
+    minControllersPerChannel: int = 3
+    minPeakDbm: float = -110.0
 
 class JobPayload(BaseModel):
     batchId: str
@@ -38,6 +41,8 @@ class LocationResult(BaseModel):
     centerLatitude: float
     centerLongitude: float
     bounds: list[BoundPoint]
+    frequencyHz: Optional[float] = None
+    controllerCount: Optional[int] = None
 
 class CallbackPayload(BaseModel):
     batchId: str

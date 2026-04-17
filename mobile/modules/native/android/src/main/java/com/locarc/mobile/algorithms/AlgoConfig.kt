@@ -22,7 +22,7 @@ data class Phase2Config(
     val kaiserBetaP1: Double = 60.0,
     val lpfOrder: Int = 2,
     val lpfCutoff: Double = 0.03,
-    val noiseMinPeaksP2: Int = 5,
+    val noiseMinPeaksP2: Int = 25,
     val noiseMaxDiffP2: Double = 10.0
 )
 
@@ -32,8 +32,10 @@ data class Phase3Config(
     val sigBwPowHz: Double = 5_000.0,
     val maxThPow: Double = 0.4,
     val kaiserBetaPow: Double = 60.0,
-    val noiseMinPeaksPow: Int = 2,
-    val noiseMaxDiffPow: Double = 10.0
+    val noiseMinPeaksPow: Int = 15,
+    val noiseMaxDiffPow: Double = 10.0,
+    val powerCalOffsetDb: Double = -90.0,
+    val dcGuardHz: Double = 12_500.0
 )
 
 data class ChannelMappingConfig(
@@ -75,7 +77,7 @@ data class AlgoConfig(
                     kaiserBetaP1 = (m["kaiserBetaP1"] as? Number)?.toDouble() ?: 60.0,
                     lpfOrder = (m["lpfOrder"] as? Number)?.toInt() ?: 2,
                     lpfCutoff = (m["lpfCutoff"] as? Number)?.toDouble() ?: 0.03,
-                    noiseMinPeaksP2 = (m["noiseMinPeaksP2"] as? Number)?.toInt() ?: 5,
+                    noiseMinPeaksP2 = (m["noiseMinPeaksP2"] as? Number)?.toInt() ?: 25,
                     noiseMaxDiffP2 = (m["noiseMaxDiffP2"] as? Number)?.toDouble() ?: 10.0
                 )
             } ?: Phase2Config()
@@ -87,8 +89,10 @@ data class AlgoConfig(
                     sigBwPowHz = (m["sigBwPowHz"] as? Number)?.toDouble() ?: 5_000.0,
                     maxThPow = (m["maxThPow"] as? Number)?.toDouble() ?: 0.4,
                     kaiserBetaPow = (m["kaiserBetaPow"] as? Number)?.toDouble() ?: 60.0,
-                    noiseMinPeaksPow = (m["noiseMinPeaksPow"] as? Number)?.toInt() ?: 2,
-                    noiseMaxDiffPow = (m["noiseMaxDiffPow"] as? Number)?.toDouble() ?: 10.0
+                    noiseMinPeaksPow = (m["noiseMinPeaksPow"] as? Number)?.toInt() ?: 15,
+                    noiseMaxDiffPow = (m["noiseMaxDiffPow"] as? Number)?.toDouble() ?: 10.0,
+                    powerCalOffsetDb = (m["powerCalOffsetDb"] as? Number)?.toDouble() ?: -90.0,
+                    dcGuardHz = (m["dcGuardHz"] as? Number)?.toDouble() ?: 12_500.0
                 )
             } ?: Phase3Config()
 

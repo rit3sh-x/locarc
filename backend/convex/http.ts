@@ -82,6 +82,8 @@ interface WebhookLocation {
     centerLongitude: number;
     centerLatitude: number;
     bounds: { longitude: number; latitude: number }[];
+    frequencyHz?: number;
+    controllerCount?: number;
 }
 
 interface WebhookPayload {
@@ -126,6 +128,12 @@ function validateWebhookPayload(payload: unknown): string | null {
             if (typeof b.latitude !== "number") {
                 return `locations[${i}].bounds[${j}].latitude must be a number`;
             }
+        }
+        if (loc.frequencyHz !== undefined && typeof loc.frequencyHz !== "number") {
+            return `locations[${i}].frequencyHz must be a number`;
+        }
+        if (loc.controllerCount !== undefined && typeof loc.controllerCount !== "number") {
+            return `locations[${i}].controllerCount must be a number`;
         }
     }
 

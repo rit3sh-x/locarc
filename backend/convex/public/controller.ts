@@ -98,7 +98,14 @@ export const getController = query({
                 ? {
                       phase1: algoSettings.phase1,
                       phase2: algoSettings.phase2,
-                      phase3: algoSettings.phase3,
+                      phase3:
+                          controller.powerCalOffsetDbOverride !== undefined
+                              ? {
+                                    ...algoSettings.phase3,
+                                    powerCalOffsetDb:
+                                        controller.powerCalOffsetDbOverride,
+                                }
+                              : algoSettings.phase3,
                       channelMapping: algoSettings.channelMapping,
                   }
                 : null,

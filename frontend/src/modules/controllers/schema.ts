@@ -15,6 +15,7 @@ export const editControllerSchema = z.object({
         vgaGain: z.number().min(0).max(62),
         lnaGain: z.number(),
         bufferSize: z.number().positive(),
+        powerCalOffsetDbOverride: z.union([z.number(), z.undefined()]),
     }),
 })
 
