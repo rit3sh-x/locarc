@@ -1,7 +1,7 @@
 .PHONY: install prebuild debug release clean dev lint format deploy build-apk
 
 APK_SRC  := android/app/build/outputs/apk/release/app-release.apk
-APK_DEST := android/app/build/outputs/apk/release/locarc.apk
+APK_DEST := dist/locarc.apk
 
 install:
 	pnpm install
@@ -14,8 +14,14 @@ debug:
 
 build-apk:
 	cd android && ./gradlew assembleRelease --no-daemon --build-cache
-	@if [ -f "$(APK_SRC)" ]; then mv $(APK_SRC) $(APK_DEST); fi
-	@echo "✓ APK ready: $(APK_DEST)"
+	@mkdir -p dist
+	@if [ -f "$(APK_SRC)" ]; then \
+		cp "$(APK_SRC)" "$(APK_DEST)"; \
+	else \
+		echo "Release APK not found in android/app/build/outputs/apk/release"; \
+		exit 1; \
+	fi
+	@echo "APK ready: $(APK_DEST)"
 
 release: build-apk
 

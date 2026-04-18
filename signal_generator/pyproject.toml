@@ -1,0 +1,10 @@
+[project]
+name = "signal-generator"
+version = "0.1.0"
+description = "PlutoSDR tone generator for testing HackRF RX + locarc spectrum analyzer pipeline"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.4.4",
+    "pyadi-iio>=0.0.20",
+]

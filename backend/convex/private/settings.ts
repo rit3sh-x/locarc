@@ -5,7 +5,6 @@ import { requireAccess } from "../lib/utils";
 export const DEFAULT_SETTINGS = {
     phase1: {
         sigBwHz: 200_000,
-        chSpacingHz: 10_000,
         perOlf: 0,
         numSamUseRatio: 0.5,
         maxTh: 0.09,
@@ -17,7 +16,7 @@ export const DEFAULT_SETTINGS = {
     },
     phase2: {
         requiredFs1Hz: 200_000,
-        sigBwP1Hz: 10_000,
+        chSpacingHz: 10_000,
         perOlfP1: 0,
         numSamUseRatioP1: 0.5,
         maxThP1: 0.4,
@@ -26,8 +25,16 @@ export const DEFAULT_SETTINGS = {
         lpfCutoff: 0.03,
         noiseMinPeaksP2: 25,
         noiseMaxDiffP2: 10,
+        dcGuardHz: 12_500,
     },
-    phase3: {
+    channelMapping: {
+        bandStartFreqHz: 300_000_000,
+        bandEndFreqHz: 500_000_000,
+        channelSpacingMapHz: 12_500,
+        powerCalOffsetDb: -90,
+        sidelobeDedupHz: 150_000,
+    },
+    powerDetection: {
         priorKnowledgeBwHz: 10_000,
         zoomFsPowerHz: 50_000,
         sigBwPowHz: 5_000,
@@ -35,13 +42,6 @@ export const DEFAULT_SETTINGS = {
         kaiserBetaPow: 60,
         noiseMinPeaksPow: 15,
         noiseMaxDiffPow: 10,
-        powerCalOffsetDb: -90,
-        dcGuardHz: 12_500,
-    },
-    channelMapping: {
-        bandStartFreqHz: 300_000_000,
-        bandEndFreqHz: 500_000_000,
-        channelSpacingMapHz: 12_500,
     },
     localization: {
         algorithm: "annulus" as const,
@@ -102,7 +102,6 @@ export const update = mutation({
         phase1: v.optional(
             v.object({
                 sigBwHz: v.optional(v.number()),
-                chSpacingHz: v.optional(v.number()),
                 perOlf: v.optional(v.number()),
                 numSamUseRatio: v.optional(v.number()),
                 maxTh: v.optional(v.number()),
@@ -116,7 +115,7 @@ export const update = mutation({
         phase2: v.optional(
             v.object({
                 requiredFs1Hz: v.optional(v.number()),
-                sigBwP1Hz: v.optional(v.number()),
+                chSpacingHz: v.optional(v.number()),
                 perOlfP1: v.optional(v.number()),
                 numSamUseRatioP1: v.optional(v.number()),
                 maxThP1: v.optional(v.number()),
@@ -125,18 +124,6 @@ export const update = mutation({
                 lpfCutoff: v.optional(v.number()),
                 noiseMinPeaksP2: v.optional(v.number()),
                 noiseMaxDiffP2: v.optional(v.number()),
-            })
-        ),
-        phase3: v.optional(
-            v.object({
-                priorKnowledgeBwHz: v.optional(v.number()),
-                zoomFsPowerHz: v.optional(v.number()),
-                sigBwPowHz: v.optional(v.number()),
-                maxThPow: v.optional(v.number()),
-                kaiserBetaPow: v.optional(v.number()),
-                noiseMinPeaksPow: v.optional(v.number()),
-                noiseMaxDiffPow: v.optional(v.number()),
-                powerCalOffsetDb: v.optional(v.number()),
                 dcGuardHz: v.optional(v.number()),
             })
         ),
@@ -145,6 +132,19 @@ export const update = mutation({
                 bandStartFreqHz: v.optional(v.number()),
                 bandEndFreqHz: v.optional(v.number()),
                 channelSpacingMapHz: v.optional(v.number()),
+                powerCalOffsetDb: v.optional(v.number()),
+                sidelobeDedupHz: v.optional(v.number()),
+            })
+        ),
+        powerDetection: v.optional(
+            v.object({
+                priorKnowledgeBwHz: v.optional(v.number()),
+                zoomFsPowerHz: v.optional(v.number()),
+                sigBwPowHz: v.optional(v.number()),
+                maxThPow: v.optional(v.number()),
+                kaiserBetaPow: v.optional(v.number()),
+                noiseMinPeaksPow: v.optional(v.number()),
+                noiseMaxDiffPow: v.optional(v.number()),
             })
         ),
         localization: v.optional(
@@ -186,13 +186,17 @@ export const update = mutation({
             ...(args.phase2 && {
                 phase2: { ...settings.phase2, ...args.phase2 },
             }),
-            ...(args.phase3 && {
-                phase3: { ...settings.phase3, ...args.phase3 },
-            }),
             ...(args.channelMapping && {
                 channelMapping: {
                     ...settings.channelMapping,
                     ...args.channelMapping,
+                },
+            }),
+            ...(args.powerDetection && {
+                powerDetection: {
+                    ...(settings.powerDetection ??
+                        DEFAULT_SETTINGS.powerDetection),
+                    ...args.powerDetection,
                 },
             }),
             ...(args.localization && {

@@ -44,8 +44,8 @@ def bounds_to_corners(bounds, ref_lat: float, ref_lon: float) -> list[BoundPoint
 def _peak_power_dbm(samples: list) -> float:
     """Take the strongest (max) reading among samples at the same channel.
 
-    Mobile may emit multiple phase3 integrations for the same channel within
-    a single scan; the strongest represents the cleanest LOS observation.
+    Mobile may emit multiple power-detection integrations for the same channel
+    within a single scan; the strongest represents the cleanest LOS observation.
     Mean-of-linear dilutes that with weaker frames and biases path-loss
     inversion toward longer distances.
     """

@@ -127,11 +127,11 @@ object Detect {
     private fun openDevice(
         usbManager: UsbManager,
         device: UsbDevice,
-        queueSize: Int,
+        @Suppress("UNUSED_PARAMETER") queueSize: Int,
         onResult: (Result<Hackrf>) -> Unit
     ) {
         try {
-            val hackrf = Hackrf(usbManager, device, queueSize)
+            val hackrf = Hackrf.open(usbManager, device)
             onResult(Result.success(hackrf))
         } catch (e: UsbException) {
             Log.e(TAG, "initHackrf: Couldn't open ${device.deviceName}", e)

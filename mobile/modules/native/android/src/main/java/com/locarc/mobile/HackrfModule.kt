@@ -9,17 +9,16 @@ import android.hardware.usb.UsbManager
 import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.locarc.mobile.algorithms.AlgoConfig
-import com.locarc.mobile.algorithms.Complex
-import com.locarc.mobile.algorithms.SpectrumAnalyzer
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -33,17 +32,18 @@ class HackrfModule : Module() {
         private const val HACKRF_MIN_FREQ_HZ = 1_000_000L
         private const val HACKRF_MAX_FREQ_HZ = 6_000_000_000L
 
-        private const val MIN_BUFFER_SIZE_KB = 64
-        private const val MAX_BUFFER_SIZE_KB = 512
-        private const val MAX_CHUNKS_PER_STEP = 32
-        private const val MAX_SWEEP_WINDOWS = 200
+        private const val MIN_BUFFER_SIZE_KB = 128
+        private const val MAX_BUFFER_SIZE_KB = 2048
+        private const val MAX_SWEEP_WINDOWS = 400
 
-        private const val MAX_PER_STEP_BYTES = 2L * 1024L * 1024L
-
-        private const val TUNE_SETTLE_MS = 40L
+        private const val COLD_OPEN_SETTLE_MS = 250L
+        private const val USB_RESET_QUIESCE_MS = 500L
+        private const val PERIODIC_RESET_EVERY_N_SCANS = 20
 
         private const val EVENT_ATTACHED = "onHackrfAttached"
         private const val EVENT_DETACHED = "onHackrfDetached"
+
+        const val ERR_HACKRF_DISCONNECTED = "HACKRF_DISCONNECTED"
     }
 
     private class ScanParamException(val code: String, message: String) : Exception(message)
@@ -52,6 +52,12 @@ class HackrfModule : Module() {
 
     private var hackrf: Hackrf? = null
     private var usbReceiver: BroadcastReceiver? = null
+    private var scanJob: Job? = null
+    @Volatile
+    private var scanCancelledByDetach: Boolean = false
+    private var scanCount: Int = 0
+    private var lifetimeTotalResets: Int = 0
+    private var forceFullResetOnNextInit: Boolean = false
 
     private fun isHackrf(device: UsbDevice?): Boolean {
         if (device == null) return false
@@ -79,15 +85,17 @@ class HackrfModule : Module() {
     }
 
     private fun parseScanSettings(params: Map<String, Any>): ScanSettings {
-        val minFrequencyHz = (params["minFrequencyHz"] as? Number)?.toLong()
-            ?: throw ScanParamException("E_PARAM", "minFrequencyHz required")
-        val maxFrequencyHz = (params["maxFrequencyHz"] as? Number)?.toLong()
-            ?: throw ScanParamException("E_PARAM", "maxFrequencyHz required")
-        val sampleRateHz = (params["sampleRateHz"] as? Number)?.toInt() ?: 10_000_000
-        val lnaGainDb = (params["lnaGainDb"] as? Number)?.toInt() ?: 16
-        val vgaGainDb = (params["vgaGainDb"] as? Number)?.toInt() ?: 20
-        val requestedBufferKb = (params["bufferSizeKb"] as? Number)?.toInt() ?: 256
-        val requestedChunks = (params["chunksPerStep"] as? Number)?.toInt() ?: 16
+        fun reqLong(key: String): Long = (params[key] as? Number)?.toLong()
+            ?: throw ScanParamException("E_PARAM", "$key is required")
+        fun reqInt(key: String): Int = (params[key] as? Number)?.toInt()
+            ?: throw ScanParamException("E_PARAM", "$key is required")
+
+        val minFrequencyHz = reqLong("minFrequencyHz")
+        val maxFrequencyHz = reqLong("maxFrequencyHz")
+        val sampleRateHz = reqInt("sampleRateHz")
+        val lnaGainDb = reqInt("lnaGainDb")
+        val vgaGainDb = reqInt("vgaGainDb")
+        val requestedBufferKb = reqInt("bufferSizeKb")
 
         if (sampleRateHz <= 0) {
             throw ScanParamException("E_PARAM", "sampleRateHz must be positive")
@@ -109,21 +117,13 @@ class HackrfModule : Module() {
         }
 
         val bufferKb = requestedBufferKb.coerceIn(MIN_BUFFER_SIZE_KB, MAX_BUFFER_SIZE_KB)
-        val bytesPerChunk = bufferKb.toLong() * 1024L
-        val maxChunksByMemory = (MAX_PER_STEP_BYTES / bytesPerChunk).toInt().coerceAtLeast(1)
-        val chunks = requestedChunks
-            .coerceIn(1, MAX_CHUNKS_PER_STEP)
-            .coerceAtMost(maxChunksByMemory)
-
         if (bufferKb != requestedBufferKb) {
             Log.w(TAG, "bufferSizeKb $requestedBufferKb → $bufferKb (capped)")
         }
-        if (chunks != requestedChunks) {
-            Log.w(TAG, "chunksPerStep $requestedChunks → $chunks (memory cap)")
-        }
 
+        val sweepStepHz = (sampleRateHz.toLong() / 2L).coerceAtLeast(1L)
         val windowCount =
-            ((maxFrequencyHz - minFrequencyHz) / sampleRateHz.toLong()) + 1
+            ((maxFrequencyHz - minFrequencyHz) / sweepStepHz) + 1
         if (windowCount > MAX_SWEEP_WINDOWS) {
             throw ScanParamException(
                 "E_SWEEP_TOO_LARGE",
@@ -138,12 +138,20 @@ class HackrfModule : Module() {
             sampleRateHz = sampleRateHz,
             lnaGainDb = lnaGainDb,
             vgaGainDb = vgaGainDb,
-            bufferSizeKb = bufferKb,
-            chunksPerStep = chunks
+            bufferSizeKb = bufferKb
         )
     }
 
     private suspend fun ensureDevice(ctx: Context): Hackrf {
+        if (forceFullResetOnNextInit && hackrf != null) {
+            Log.i(TAG, "periodic full reset after $scanCount scans")
+            try { hackrf?.close() } catch (_: Exception) {}
+            hackrf = null
+            forceFullResetOnNextInit = false
+            try { delay(USB_RESET_QUIESCE_MS) } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
         hackrf?.let { return it }
         Log.d(TAG, "ensureDevice: requesting Detect.initHackrf")
         val device = suspendCoroutine<Hackrf> { cont ->
@@ -156,54 +164,10 @@ class HackrfModule : Module() {
             if (!found) cont.resumeWithException(UsbException("No HackRF device found"))
         }
         hackrf = device
+        try { Thread.sleep(COLD_OPEN_SETTLE_MS) } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
         return device
-    }
-
-    private fun configureDevice(dev: Hackrf, settings: ScanSettings) {
-        dev.setBufferSize(settings.bufferSizeKb)
-        dev.setSampleRate(settings.sampleRateHz, 1)
-        val bbFilter = Hackrf.computeBasebandFilterBandwidth(settings.sampleRateHz)
-        dev.setBasebandFilterBandwidth(bbFilter)
-        if (!dev.setLnaGain(settings.lnaGainDb)) {
-            throw UsbException("HackRF rejected LNA gain ${settings.lnaGainDb} dB")
-        }
-        if (!dev.setVgaGain(settings.vgaGainDb)) {
-            throw UsbException("HackRF rejected VGA gain ${settings.vgaGainDb} dB")
-        }
-        Log.d(
-            TAG,
-            "configured: sr=${settings.sampleRateHz / 1e6} MHz bb=${bbFilter / 1e6} MHz " +
-                    "lna=${settings.lnaGainDb} vga=${settings.vgaGainDb}"
-        )
-    }
-
-    private fun captureStep(dev: Hackrf, chunksPerStep: Int): ArrayList<ByteArray> {
-        val rxQueue = dev.startRX()
-        val chunks = ArrayList<ByteArray>(chunksPerStep)
-        try {
-            repeat(chunksPerStep) {
-                val buf = rxQueue.take()
-                chunks.add(buf.copyOf())
-                dev.returnBufferToBufferPool(buf)
-            }
-        } finally {
-            dev.stop()
-        }
-        return chunks
-    }
-
-    private fun analyzeStep(
-        centerFreqHz: Long,
-        sampleRateHz: Int,
-        iqSamples: Array<Complex>,
-        algoConfig: AlgoConfig
-    ): List<SpectrumAnalyzer.PowerMeasurement> {
-        val analyzer = SpectrumAnalyzer(
-            centerFreqHz = centerFreqHz.toDouble(),
-            bbSampleRate = sampleRateHz.toDouble(),
-            config = algoConfig
-        )
-        return analyzer.analyzeSpectrum(iqSamples)
     }
 
     override fun definition() = ModuleDefinition {
@@ -231,6 +195,11 @@ class HackrfModule : Module() {
                         }
                         UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                             Log.d(TAG, "USB detached: ${dev.deviceName}")
+                            val job = scanJob
+                            if (job != null && job.isActive) {
+                                scanCancelledByDetach = true
+                                HackrfNative.nativeCancelScan()
+                            }
                             try { hackrf?.close() } catch (_: Exception) {}
                             hackrf = null
                             sendEvent(EVENT_DETACHED, mapOf("deviceName" to dev.deviceName))
@@ -275,10 +244,28 @@ class HackrfModule : Module() {
             val ctx = appContext.reactContext
                 ?: return@AsyncFunction promise.reject("E_NO_CONTEXT", "React context unavailable", null)
 
+            if (forceFullResetOnNextInit && hackrf != null) {
+                Log.i(TAG, "periodic full reset after $scanCount scans")
+                try { hackrf?.close() } catch (_: Exception) {}
+                hackrf = null
+                forceFullResetOnNextInit = false
+                try { Thread.sleep(USB_RESET_QUIESCE_MS) } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                }
+            }
+
+            hackrf?.let {
+                Log.d(TAG, "initDevice: reusing cached HackRF handle ${it.usbDevice.deviceName}")
+                return@AsyncFunction promise.resolve(true)
+            }
+
             val found = Detect.initHackrf(ctx, queueSize = 8) { result ->
                 result.fold(
                     onSuccess = {
                         hackrf = it
+                        try { Thread.sleep(COLD_OPEN_SETTLE_MS) } catch (_: InterruptedException) {
+                            Thread.currentThread().interrupt()
+                        }
                         Log.d(TAG, "HackRF ready: ${it.usbDevice.deviceName}")
                         promise.resolve(true)
                     },
@@ -306,115 +293,81 @@ class HackrfModule : Module() {
             } catch (e: ScanParamException) {
                 return@AsyncFunction promise.reject(e.code, e.message ?: "Invalid params", null)
             }
-            val algoConfig = AlgoConfig.fromMap(algoParams)
+            val algoPacked = AlgoParams.fromMap(algoParams)
+            algoPacked.doubles[16] = settings.minFrequencyHz.toDouble()
+            algoPacked.doubles[17] = settings.maxFrequencyHz.toDouble()
 
+            val sweepStepHz = (settings.sampleRateHz.toLong() / 2L).coerceAtLeast(1L)
             val windowCount =
-                ((settings.maxFrequencyHz - settings.minFrequencyHz) / settings.sampleRateHz.toLong()) + 1
-            val perStepMb = (settings.bufferSizeKb.toLong() * 1024L * settings.chunksPerStep) / (1024 * 1024)
+                ((settings.maxFrequencyHz - settings.minFrequencyHz) / sweepStepHz) + 1
+            val perStepBytes = settings.bufferSizeKb.toLong() * 1024L
+            val perStepSamples = perStepBytes / 2L
 
             Log.i(
                 TAG,
                 "runFullScan START: ${settings.minFrequencyHz / 1e6}..${settings.maxFrequencyHz / 1e6} MHz " +
                         "sr=${settings.sampleRateHz / 1e6} MHz lna=${settings.lnaGainDb} vga=${settings.vgaGainDb} " +
-                        "bufKB=${settings.bufferSizeKb} chunks=${settings.chunksPerStep} " +
-                        "windows=$windowCount perStep=${perStepMb}MB"
+                        "bufKB=${settings.bufferSizeKb} " +
+                        "windows=$windowCount stepHz=${sweepStepHz} " +
+                        "perStep=${perStepBytes}B (~${perStepSamples} IQ samples)"
             )
             logMemory("runFullScan: start")
 
             val scanStartNs = System.nanoTime()
 
-            scope.launch {
-                var phase = "init"
+            scanCancelledByDetach = false
+            ScanForegroundService.start(ctx)
+            val job = scope.launch {
                 try {
-                    phase = "device-init"
                     val dev = ensureDevice(ctx)
 
-                    phase = "configure"
-                    configureDevice(dev, settings)
+                    val flat = HackrfNative.nativeRunFullScan(
+                        handle = dev.handle,
+                        minFreqHz = settings.minFrequencyHz,
+                        maxFreqHz = settings.maxFrequencyHz,
+                        sampleRateHz = settings.sampleRateHz,
+                        lnaGainDb = settings.lnaGainDb,
+                        vgaGainDb = settings.vgaGainDb,
+                        perStepBytes = perStepBytes.toInt(),
+                        algoDoubles = algoPacked.doubles,
+                        algoInts = algoPacked.ints
+                    )
 
-                    val bandwidth = settings.sampleRateHz.toLong()
-                    val allMeasurements = mutableListOf<Map<String, Any>>()
-                    var centerFreq = settings.minFrequencyHz
-                    var stepIndex = 0
-
-                    while (centerFreq <= settings.maxFrequencyHz) {
-                        val step = stepIndex++
-                        val stepStartNs = System.nanoTime()
-                        Log.i(TAG, "sweep[$step]: tune to ${centerFreq / 1e6} MHz")
-
-                        phase = "step[$step]/tune"
-                        dev.setFrequency(centerFreq)
-                        Thread.sleep(TUNE_SETTLE_MS)
-
-                        phase = "step[$step]/rx"
-                        val rawChunks = captureStep(dev, settings.chunksPerStep)
-                        val rawBytes = rawChunks.sumOf { it.size }
-                        Log.d(TAG, "sweep[$step]: captured ${rawChunks.size} chunks, $rawBytes bytes")
-
-                        phase = "step[$step]/iq-convert"
-                        var iqSamples: Array<Complex>? =
-                            HackrfScanner.chunksToIqSamples(rawChunks)
-                        rawChunks.clear()
-                        logMemory("sweep[$step]: post-iq (${iqSamples!!.size} samples)")
-
-                        phase = "step[$step]/analyze"
-                        val analyzeStart = System.nanoTime()
-                        val measurements = analyzeStep(
-                            centerFreqHz = centerFreq,
-                            sampleRateHz = settings.sampleRateHz,
-                            iqSamples = iqSamples!!,
-                            algoConfig = algoConfig
-                        )
-                        iqSamples = null
-
-                        Log.i(
-                            TAG,
-                            "sweep[$step]: ${measurements.size} measurements in " +
-                                    "${(System.nanoTime() - analyzeStart) / 1_000_000} ms"
-                        )
-
-                        phase = "step[$step]/accumulate"
-                        for (m in measurements) {
-                            allMeasurements.add(
-                                mapOf("frequency" to m.frequency, "powerDbm" to m.powerDbm)
-                            )
-                        }
-
-                        Log.d(
-                            TAG,
-                            "sweep[$step]: complete in ${(System.nanoTime() - stepStartNs) / 1_000_000} ms"
-                        )
-
-                        centerFreq += bandwidth
+                    if (scanCancelledByDetach) {
+                        promise.reject(ERR_HACKRF_DISCONNECTED, "HackRF unplugged mid-scan", null)
+                        return@launch
                     }
 
+                    val out = ArrayList<Map<String, Any>>(flat.size / 2)
+                    var i = 0
+                    while (i + 1 < flat.size) {
+                        out.add(mapOf("frequency" to flat[i], "powerDbm" to flat[i + 1]))
+                        i += 2
+                    }
                     val totalMs = (System.nanoTime() - scanStartNs) / 1_000_000
-                    Log.i(
-                        TAG,
-                        "runFullScan DONE: $stepIndex windows, ${allMeasurements.size} measurements, ${totalMs} ms"
-                    )
+                    Log.i(TAG, "runFullScan DONE: ${out.size} measurements, ${totalMs} ms")
                     logMemory("runFullScan: done")
-                    promise.resolve(allMeasurements)
-
+                    promise.resolve(out)
                 } catch (e: CancellationException) {
-                    Log.w(TAG, "runFullScan CANCELLED during phase=$phase")
-                    try { hackrf?.close() } catch (_: Exception) {}
-                    hackrf = null
-                    throw e
-                } catch (e: OutOfMemoryError) {
-                    Log.e(TAG, "runFullScan OOM during phase=$phase", e)
-                    logMemory("runFullScan: at OOM")
-                    try { hackrf?.close() } catch (_: Exception) {}
-                    hackrf = null
-                    promise.reject("E_OOM", "Out of memory during $phase: ${e.message}", null)
+                    HackrfNative.nativeCancelScan()
+                    if (scanCancelledByDetach) {
+                        promise.reject(ERR_HACKRF_DISCONNECTED, "HackRF unplugged mid-scan", null)
+                    } else {
+                        promise.reject("E_CANCELLED", "Scan cancelled: ${e.message}", e)
+                    }
                 } catch (e: Exception) {
-                    Log.e(TAG, "runFullScan FAILED during phase=$phase", e)
-                    logMemory("runFullScan: at failure")
-                    try { hackrf?.close() } catch (_: Exception) {}
-                    hackrf = null
-                    promise.reject("E_FULL_SCAN", "[$phase] ${e.message ?: "Full scan failed"}", e)
+                    Log.e(TAG, "runFullScan FAILED", e)
+                    if (scanCancelledByDetach) {
+                        promise.reject(ERR_HACKRF_DISCONNECTED, "HackRF unplugged mid-scan", null)
+                    } else {
+                        promise.reject("E_FULL_SCAN", e.message ?: "Full scan failed", e)
+                    }
+                } finally {
+                    scanJob = null
+                    try { ScanForegroundService.stop(ctx) } catch (_: Exception) {}
                 }
             }
+            scanJob = job
         }
 
         AsyncFunction("closeDevice") { promise: Promise ->

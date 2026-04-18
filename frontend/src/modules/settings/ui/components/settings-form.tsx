@@ -15,7 +15,14 @@ import { Field, FieldLabel, FieldError, FieldDescription } from '@/components/ui
 import { Separator } from '@/components/ui/separator'
 
 import { SettingsSection } from './settings-section'
-import type { UpdateSettingsInput } from '../../types'
+import type {
+    ChannelMappingSettings,
+    LocalizationSettings,
+    Phase1Settings,
+    Phase2Settings,
+    PowerDetectionSettings,
+    UpdateSettingsInput,
+} from '../../types'
 
 interface NumericFieldProps {
     state: {
@@ -32,11 +39,11 @@ interface NumericFieldProps {
 
 interface SettingsFormProps {
     initialValues: {
-        phase1: NonNullable<UpdateSettingsInput['phase1']>
-        phase2: NonNullable<UpdateSettingsInput['phase2']>
-        phase3: NonNullable<UpdateSettingsInput['phase3']>
-        channelMapping: NonNullable<UpdateSettingsInput['channelMapping']>
-        localization: NonNullable<UpdateSettingsInput['localization']>
+        phase1: Phase1Settings
+        phase2: Phase2Settings
+        powerDetection?: PowerDetectionSettings
+        channelMapping: ChannelMappingSettings
+        localization: LocalizationSettings
     }
     onSubmit: (values: UpdateSettingsInput) => Promise<void>
     onReset: () => Promise<void>
@@ -82,6 +89,16 @@ function NumericField({
     )
 }
 
+const POWER_DETECTION_DEFAULTS: PowerDetectionSettings = {
+    priorKnowledgeBwHz: 10_000,
+    zoomFsPowerHz: 50_000,
+    sigBwPowHz: 5_000,
+    maxThPow: 0.4,
+    kaiserBetaPow: 60,
+    noiseMinPeaksPow: 15,
+    noiseMaxDiffPow: 10,
+}
+
 export const SettingsForm = ({
     initialValues,
     onSubmit,
@@ -89,10 +106,10 @@ export const SettingsForm = ({
     isPending,
     isResetPending,
 }: SettingsFormProps) => {
+    const pd = initialValues.powerDetection ?? POWER_DETECTION_DEFAULTS
     const form = useForm({
         defaultValues: {
             'phase1.sigBwHz': initialValues.phase1.sigBwHz ?? 200_000,
-            'phase1.chSpacingHz': initialValues.phase1.chSpacingHz ?? 10_000,
             'phase1.perOlf': initialValues.phase1.perOlf ?? 0,
             'phase1.numSamUseRatio': initialValues.phase1.numSamUseRatio ?? 0.5,
             'phase1.maxTh': initialValues.phase1.maxTh ?? 0.09,
@@ -102,7 +119,7 @@ export const SettingsForm = ({
             'phase1.noiseMinPeaks': initialValues.phase1.noiseMinPeaks ?? 10,
             'phase1.noiseMaxDiff': initialValues.phase1.noiseMaxDiff ?? 10,
             'phase2.requiredFs1Hz': initialValues.phase2.requiredFs1Hz ?? 200_000,
-            'phase2.sigBwP1Hz': initialValues.phase2.sigBwP1Hz ?? 10_000,
+            'phase2.chSpacingHz': initialValues.phase2.chSpacingHz ?? 10_000,
             'phase2.perOlfP1': initialValues.phase2.perOlfP1 ?? 0,
             'phase2.numSamUseRatioP1': initialValues.phase2.numSamUseRatioP1 ?? 0.5,
             'phase2.maxThP1': initialValues.phase2.maxThP1 ?? 0.4,
@@ -111,21 +128,25 @@ export const SettingsForm = ({
             'phase2.lpfCutoff': initialValues.phase2.lpfCutoff ?? 0.03,
             'phase2.noiseMinPeaksP2': initialValues.phase2.noiseMinPeaksP2 ?? 25,
             'phase2.noiseMaxDiffP2': initialValues.phase2.noiseMaxDiffP2 ?? 10,
-            'phase3.priorKnowledgeBwHz': initialValues.phase3.priorKnowledgeBwHz ?? 10_000,
-            'phase3.zoomFsPowerHz': initialValues.phase3.zoomFsPowerHz ?? 50_000,
-            'phase3.sigBwPowHz': initialValues.phase3.sigBwPowHz ?? 5_000,
-            'phase3.maxThPow': initialValues.phase3.maxThPow ?? 0.4,
-            'phase3.kaiserBetaPow': initialValues.phase3.kaiserBetaPow ?? 60,
-            'phase3.noiseMinPeaksPow': initialValues.phase3.noiseMinPeaksPow ?? 15,
-            'phase3.noiseMaxDiffPow': initialValues.phase3.noiseMaxDiffPow ?? 10,
-            'phase3.powerCalOffsetDb': initialValues.phase3.powerCalOffsetDb ?? -90,
-            'phase3.dcGuardHz': initialValues.phase3.dcGuardHz ?? 12_500,
+            'phase2.dcGuardHz': initialValues.phase2.dcGuardHz ?? 12_500,
+            'powerDetection.enabled': initialValues.powerDetection !== undefined,
+            'powerDetection.priorKnowledgeBwHz': pd.priorKnowledgeBwHz ?? 10_000,
+            'powerDetection.zoomFsPowerHz': pd.zoomFsPowerHz ?? 50_000,
+            'powerDetection.sigBwPowHz': pd.sigBwPowHz ?? 5_000,
+            'powerDetection.maxThPow': pd.maxThPow ?? 0.4,
+            'powerDetection.kaiserBetaPow': pd.kaiserBetaPow ?? 60,
+            'powerDetection.noiseMinPeaksPow': pd.noiseMinPeaksPow ?? 15,
+            'powerDetection.noiseMaxDiffPow': pd.noiseMaxDiffPow ?? 10,
             'channelMapping.bandStartFreqHz':
                 initialValues.channelMapping.bandStartFreqHz ?? 300_000_000,
             'channelMapping.bandEndFreqHz':
                 initialValues.channelMapping.bandEndFreqHz ?? 500_000_000,
             'channelMapping.channelSpacingMapHz':
                 initialValues.channelMapping.channelSpacingMapHz ?? 12_500,
+            'channelMapping.powerCalOffsetDb':
+                initialValues.channelMapping.powerCalOffsetDb ?? -90,
+            'channelMapping.sidelobeDedupHz':
+                initialValues.channelMapping.sidelobeDedupHz ?? 12_500,
             'localization.algorithm': initialValues.localization.algorithm ?? 'annulus',
             'localization.pathLossExponent': initialValues.localization.pathLossExponent ?? 3.5,
             'localization.ptSearchRangeMinDbm':
@@ -140,10 +161,9 @@ export const SettingsForm = ({
             'localization.minPeakDbm': initialValues.localization.minPeakDbm ?? -110,
         },
         onSubmit: async ({ value }) => {
-            await onSubmit({
+            const payload: UpdateSettingsInput = {
                 phase1: {
                     sigBwHz: value['phase1.sigBwHz'],
-                    chSpacingHz: value['phase1.chSpacingHz'],
                     perOlf: value['phase1.perOlf'],
                     numSamUseRatio: value['phase1.numSamUseRatio'],
                     maxTh: value['phase1.maxTh'],
@@ -155,7 +175,7 @@ export const SettingsForm = ({
                 },
                 phase2: {
                     requiredFs1Hz: value['phase2.requiredFs1Hz'],
-                    sigBwP1Hz: value['phase2.sigBwP1Hz'],
+                    chSpacingHz: value['phase2.chSpacingHz'],
                     perOlfP1: value['phase2.perOlfP1'],
                     numSamUseRatioP1: value['phase2.numSamUseRatioP1'],
                     maxThP1: value['phase2.maxThP1'],
@@ -164,22 +184,14 @@ export const SettingsForm = ({
                     lpfCutoff: value['phase2.lpfCutoff'],
                     noiseMinPeaksP2: value['phase2.noiseMinPeaksP2'],
                     noiseMaxDiffP2: value['phase2.noiseMaxDiffP2'],
-                },
-                phase3: {
-                    priorKnowledgeBwHz: value['phase3.priorKnowledgeBwHz'],
-                    zoomFsPowerHz: value['phase3.zoomFsPowerHz'],
-                    sigBwPowHz: value['phase3.sigBwPowHz'],
-                    maxThPow: value['phase3.maxThPow'],
-                    kaiserBetaPow: value['phase3.kaiserBetaPow'],
-                    noiseMinPeaksPow: value['phase3.noiseMinPeaksPow'],
-                    noiseMaxDiffPow: value['phase3.noiseMaxDiffPow'],
-                    powerCalOffsetDb: value['phase3.powerCalOffsetDb'],
-                    dcGuardHz: value['phase3.dcGuardHz'],
+                    dcGuardHz: value['phase2.dcGuardHz'],
                 },
                 channelMapping: {
                     bandStartFreqHz: value['channelMapping.bandStartFreqHz'],
                     bandEndFreqHz: value['channelMapping.bandEndFreqHz'],
                     channelSpacingMapHz: value['channelMapping.channelSpacingMapHz'],
+                    powerCalOffsetDb: value['channelMapping.powerCalOffsetDb'],
+                    sidelobeDedupHz: value['channelMapping.sidelobeDedupHz'],
                 },
                 localization: {
                     algorithm: value['localization.algorithm'],
@@ -192,7 +204,19 @@ export const SettingsForm = ({
                     minControllersPerChannel: value['localization.minControllersPerChannel'],
                     minPeakDbm: value['localization.minPeakDbm'],
                 },
-            })
+            }
+            if (value['powerDetection.enabled']) {
+                payload.powerDetection = {
+                    priorKnowledgeBwHz: value['powerDetection.priorKnowledgeBwHz'],
+                    zoomFsPowerHz: value['powerDetection.zoomFsPowerHz'],
+                    sigBwPowHz: value['powerDetection.sigBwPowHz'],
+                    maxThPow: value['powerDetection.maxThPow'],
+                    kaiserBetaPow: value['powerDetection.kaiserBetaPow'],
+                    noiseMinPeaksPow: value['powerDetection.noiseMinPeaksPow'],
+                    noiseMaxDiffPow: value['powerDetection.noiseMaxDiffPow'],
+                }
+            }
+            await onSubmit(payload)
         },
     })
 
@@ -209,16 +233,11 @@ export const SettingsForm = ({
                     value="phase1"
                     title="Coarse Detection"
                     description="Phase 1 — Wide-band sweep to find active frequency regions"
-                    fieldCount={10}
+                    fieldCount={9}
                 >
                     <form.Field name="phase1.sigBwHz">
                         {(field) => (
                             <NumericField field={field} label="Signal Bandwidth" unit="Hz" />
-                        )}
-                    </form.Field>
-                    <form.Field name="phase1.chSpacingHz">
-                        {(field) => (
-                            <NumericField field={field} label="Channel Spacing" unit="Hz" />
                         )}
                     </form.Field>
                     <form.Field name="phase1.perOlf">
@@ -269,16 +288,16 @@ export const SettingsForm = ({
                     value="phase2"
                     title="Fine Detection"
                     description="Phase 2 — Narrowband zoom for precise frequency identification"
-                    fieldCount={10}
+                    fieldCount={11}
                 >
                     <form.Field name="phase2.requiredFs1Hz">
                         {(field) => (
                             <NumericField field={field} label="Decimated Sample Rate" unit="Hz" />
                         )}
                     </form.Field>
-                    <form.Field name="phase2.sigBwP1Hz">
+                    <form.Field name="phase2.chSpacingHz">
                         {(field) => (
-                            <NumericField field={field} label="Signal Bandwidth" unit="Hz" />
+                            <NumericField field={field} label="Channel Spacing" unit="Hz" />
                         )}
                     </form.Field>
                     <form.Field name="phase2.perOlfP1">
@@ -305,52 +324,7 @@ export const SettingsForm = ({
                     <form.Field name="phase2.noiseMaxDiffP2">
                         {(field) => <NumericField field={field} label="Noise Max Diff" unit="dB" />}
                     </form.Field>
-                </SettingsSection>
-
-                <SettingsSection
-                    value="phase3"
-                    title="Power Measurement"
-                    description="Phase 3 — High-resolution power estimation per detected signal"
-                    fieldCount={9}
-                >
-                    <form.Field name="phase3.priorKnowledgeBwHz">
-                        {(field) => (
-                            <NumericField field={field} label="Integration Bandwidth" unit="Hz" />
-                        )}
-                    </form.Field>
-                    <form.Field name="phase3.zoomFsPowerHz">
-                        {(field) => (
-                            <NumericField field={field} label="Zoom Sample Rate" unit="Hz" />
-                        )}
-                    </form.Field>
-                    <form.Field name="phase3.sigBwPowHz">
-                        {(field) => (
-                            <NumericField field={field} label="Signal Bandwidth" unit="Hz" />
-                        )}
-                    </form.Field>
-                    <form.Field name="phase3.maxThPow">
-                        {(field) => <NumericField field={field} label="Peak Threshold" />}
-                    </form.Field>
-                    <form.Field name="phase3.kaiserBetaPow">
-                        {(field) => <NumericField field={field} label="Kaiser Beta" />}
-                    </form.Field>
-                    <form.Field name="phase3.noiseMinPeaksPow">
-                        {(field) => <NumericField field={field} label="Noise Min Peaks" />}
-                    </form.Field>
-                    <form.Field name="phase3.noiseMaxDiffPow">
-                        {(field) => <NumericField field={field} label="Noise Max Diff" unit="dB" />}
-                    </form.Field>
-                    <form.Field name="phase3.powerCalOffsetDb">
-                        {(field) => (
-                            <NumericField
-                                field={field}
-                                label="Power Calibration Offset"
-                                unit="dB"
-                                description="Maps ADC dBFS → RF dBm; tune per LNA/VGA gain"
-                            />
-                        )}
-                    </form.Field>
-                    <form.Field name="phase3.dcGuardHz">
+                    <form.Field name="phase2.dcGuardHz">
                         {(field) => (
                             <NumericField
                                 field={field}
@@ -365,8 +339,8 @@ export const SettingsForm = ({
                 <SettingsSection
                     value="channelMapping"
                     title="Channel Mapping"
-                    description="Frequency band boundaries and channel grid resolution"
-                    fieldCount={3}
+                    description="Frequency band boundaries, channel grid, and power calibration"
+                    fieldCount={5}
                 >
                     <form.Field name="channelMapping.bandStartFreqHz">
                         {(field) => <NumericField field={field} label="Band Start" unit="Hz" />}
@@ -378,6 +352,85 @@ export const SettingsForm = ({
                         {(field) => (
                             <NumericField field={field} label="Channel Spacing" unit="Hz" />
                         )}
+                    </form.Field>
+                    <form.Field name="channelMapping.powerCalOffsetDb">
+                        {(field) => (
+                            <NumericField
+                                field={field}
+                                label="Power Calibration Offset"
+                                unit="dB"
+                                description="Maps ADC dBFS → RF dBm; tune per LNA/VGA gain"
+                            />
+                        )}
+                    </form.Field>
+                    <form.Field name="channelMapping.sidelobeDedupHz">
+                        {(field) => (
+                            <NumericField
+                                field={field}
+                                label="Sidelobe Dedup Window"
+                                unit="Hz"
+                                description="Merge peaks within this spacing to kill FFT sidelobes"
+                            />
+                        )}
+                    </form.Field>
+                </SettingsSection>
+
+                <SettingsSection
+                    value="powerDetection"
+                    title="Power Detection (optional)"
+                    description="Legacy Python-only zoom pipeline; leave disabled for the native path"
+                    fieldCount={8}
+                >
+                    <form.Field name="powerDetection.enabled">
+                        {(field) => (
+                            <Field>
+                                <FieldLabel className="text-xs font-medium text-muted-foreground">
+                                    Enable Power Detection
+                                </FieldLabel>
+                                <Select
+                                    value={field.state.value ? 'on' : 'off'}
+                                    onValueChange={(v) => field.handleChange(v === 'on')}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="off">Disabled</SelectItem>
+                                        <SelectItem value="on">Enabled</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FieldDescription className="text-[11px]">
+                                    Optional — used only by the legacy Python reference pipeline
+                                </FieldDescription>
+                            </Field>
+                        )}
+                    </form.Field>
+                    <form.Field name="powerDetection.priorKnowledgeBwHz">
+                        {(field) => (
+                            <NumericField field={field} label="Integration Bandwidth" unit="Hz" />
+                        )}
+                    </form.Field>
+                    <form.Field name="powerDetection.zoomFsPowerHz">
+                        {(field) => (
+                            <NumericField field={field} label="Zoom Sample Rate" unit="Hz" />
+                        )}
+                    </form.Field>
+                    <form.Field name="powerDetection.sigBwPowHz">
+                        {(field) => (
+                            <NumericField field={field} label="Signal Bandwidth" unit="Hz" />
+                        )}
+                    </form.Field>
+                    <form.Field name="powerDetection.maxThPow">
+                        {(field) => <NumericField field={field} label="Peak Threshold" />}
+                    </form.Field>
+                    <form.Field name="powerDetection.kaiserBetaPow">
+                        {(field) => <NumericField field={field} label="Kaiser Beta" />}
+                    </form.Field>
+                    <form.Field name="powerDetection.noiseMinPeaksPow">
+                        {(field) => <NumericField field={field} label="Noise Min Peaks" />}
+                    </form.Field>
+                    <form.Field name="powerDetection.noiseMaxDiffPow">
+                        {(field) => <NumericField field={field} label="Noise Max Diff" unit="dB" />}
                     </form.Field>
                 </SettingsSection>
 

@@ -19,12 +19,10 @@ export const create = mutation({
         username: v.string(),
         password: v.string(),
         settings: v.object({
-            minFreqHz: v.number(),
-            maxFreqHz: v.number(),
-            sampleRate: v.number(),
-            vgaGain: v.number(),
-            lnaGain: v.number(),
-            bufferSize: v.number(),
+            lnaGainDb: v.number(),
+            vgaGainDb: v.number(),
+            bufferSizeKb: v.number(),
+            powerCalOffsetDbOverride: v.optional(v.number()),
         }),
     },
     handler: async (ctx, input) => {
@@ -32,8 +30,7 @@ export const create = mutation({
             controller: ["create"],
         });
 
-        const { name, password, settings, username } =
-            input;
+        const { name, password, settings, username } = input;
 
         if (name.length < 3)
             throw new ConvexError({
@@ -50,40 +47,20 @@ export const create = mutation({
                 code: "BAD_REQUEST",
                 message: "Password must be at least 8 characters",
             });
-        if (settings.minFreqHz <= 0)
+        if (settings.vgaGainDb < 0 || settings.vgaGainDb > 62)
             throw new ConvexError({
                 code: "BAD_REQUEST",
-                message: "minFreqHz must be positive",
+                message: "vgaGainDb must be between 0 and 62",
             });
-        if (settings.maxFreqHz <= 0)
+        if (settings.bufferSizeKb <= 0)
             throw new ConvexError({
                 code: "BAD_REQUEST",
-                message: "maxFreqHz must be positive",
+                message: "bufferSizeKb must be positive",
             });
-        if (settings.sampleRate <= 0)
+        if (settings.lnaGainDb < 0 || settings.lnaGainDb > 40)
             throw new ConvexError({
                 code: "BAD_REQUEST",
-                message: "sampleRate must be positive",
-            });
-        if (settings.vgaGain < 0 || settings.vgaGain > 62)
-            throw new ConvexError({
-                code: "BAD_REQUEST",
-                message: "vgaGain must be between 0 and 62",
-            });
-        if (settings.bufferSize <= 0)
-            throw new ConvexError({
-                code: "BAD_REQUEST",
-                message: "bufferSize must be positive",
-            });
-        if (settings.lnaGain < 0 || settings.lnaGain > 40)
-            throw new ConvexError({
-                code: "BAD_REQUEST",
-                message: "lnaGain must be between 0 and 40",
-            });
-        if (settings.minFreqHz >= settings.maxFreqHz)
-            throw new ConvexError({
-                code: "BAD_REQUEST",
-                message: "minFreqHz must be less than maxFreqHz",
+                message: "lnaGainDb must be between 0 and 40",
             });
 
         const user: Doc<"user"> = await ctx.runMutation(
@@ -134,12 +111,10 @@ export const create = mutation({
             userId: user._id,
             latitudeE6: DEFAULT_CONTROLLER_LATITUDE * LOCATION_MULTIPLIER,
             longitudeE6: DEFAULT_CONTROLLER_LONGITUDE * LOCATION_MULTIPLIER,
-            minFreqHz: settings.minFreqHz,
-            maxFreqHz: settings.maxFreqHz,
-            sampleRate: settings.sampleRate,
-            vgaGain: settings.vgaGain,
-            lnaGain: settings.lnaGain,
-            bufferSize: settings.bufferSize,
+            lnaGainDb: settings.lnaGainDb,
+            vgaGainDb: settings.vgaGainDb,
+            bufferSizeKb: settings.bufferSizeKb,
+            powerCalOffsetDbOverride: settings.powerCalOffsetDbOverride,
             updatedAt: Date.now(),
             name,
         });
@@ -156,12 +131,9 @@ export const update = mutation({
         username: v.optional(v.string()),
         settings: v.optional(
             v.object({
-                minFreqHz: v.optional(v.number()),
-                maxFreqHz: v.optional(v.number()),
-                sampleRate: v.optional(v.number()),
-                vgaGain: v.optional(v.number()),
-                lnaGain: v.optional(v.number()),
-                bufferSize: v.optional(v.number()),
+                lnaGainDb: v.optional(v.number()),
+                vgaGainDb: v.optional(v.number()),
+                bufferSizeKb: v.optional(v.number()),
                 powerCalOffsetDbOverride: v.optional(v.number()),
             })
         ),
@@ -194,50 +166,26 @@ export const update = mutation({
                 code: "BAD_REQUEST",
                 message: "Password must be at least 8 characters",
             });
-        if (settings?.minFreqHz !== undefined && settings.minFreqHz <= 0)
-            throw new ConvexError({
-                code: "BAD_REQUEST",
-                message: "minFreqHz must be positive",
-            });
-        if (settings?.maxFreqHz !== undefined && settings.maxFreqHz <= 0)
-            throw new ConvexError({
-                code: "BAD_REQUEST",
-                message: "maxFreqHz must be positive",
-            });
-        if (settings?.sampleRate !== undefined && settings.sampleRate <= 0)
-            throw new ConvexError({
-                code: "BAD_REQUEST",
-                message: "sampleRate must be positive",
-            });
         if (
-            settings?.vgaGain !== undefined &&
-            (settings.vgaGain < 0 || settings.vgaGain > 62)
+            settings?.vgaGainDb !== undefined &&
+            (settings.vgaGainDb < 0 || settings.vgaGainDb > 62)
         )
             throw new ConvexError({
                 code: "BAD_REQUEST",
-                message: "vgaGain must be between 0 and 62",
+                message: "vgaGainDb must be between 0 and 62",
             });
-        if (settings?.bufferSize !== undefined && settings.bufferSize <= 0)
+        if (settings?.bufferSizeKb !== undefined && settings.bufferSizeKb <= 0)
             throw new ConvexError({
                 code: "BAD_REQUEST",
-                message: "bufferSize must be positive",
+                message: "bufferSizeKb must be positive",
             });
         if (
-            settings?.lnaGain !== undefined &&
-            (settings.lnaGain < 0 || settings.lnaGain > 40)
+            settings?.lnaGainDb !== undefined &&
+            (settings.lnaGainDb < 0 || settings.lnaGainDb > 40)
         )
             throw new ConvexError({
                 code: "BAD_REQUEST",
-                message: "lnaGain must be between 0 and 40",
-            });
-        if (
-            settings?.minFreqHz !== undefined &&
-            settings?.maxFreqHz !== undefined &&
-            settings.minFreqHz >= settings.maxFreqHz
-        )
-            throw new ConvexError({
-                code: "BAD_REQUEST",
-                message: "minFreqHz must be less than maxFreqHz",
+                message: "lnaGainDb must be between 0 and 40",
             });
 
         const controller = await ctx.db.get(controllerId);
@@ -445,12 +393,9 @@ export const getMany = query({
                     latitude: controller.latitudeE6 / LOCATION_MULTIPLIER,
                     longitude: controller.longitudeE6 / LOCATION_MULTIPLIER,
                     settings: {
-                        minFreqHz: controller.minFreqHz,
-                        maxFreqHz: controller.maxFreqHz,
-                        sampleRate: controller.sampleRate,
-                        vgaGain: controller.vgaGain,
-                        lnaGain: controller.lnaGain,
-                        bufferSize: controller.bufferSize,
+                        lnaGainDb: controller.lnaGainDb,
+                        vgaGainDb: controller.vgaGainDb,
+                        bufferSizeKb: controller.bufferSizeKb,
                         powerCalOffsetDbOverride:
                             controller.powerCalOffsetDbOverride,
                     },

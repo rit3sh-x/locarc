@@ -21,6 +21,7 @@ export const authClient = createAuthClient({
             storagePrefix: Constants.expoConfig?.scheme as string,
             storage: SecureStore,
             cookiePrefix: 'locarc',
+            disableCache: true,
         }),
         convexClient(),
         usernameClient(),

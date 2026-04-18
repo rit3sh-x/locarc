@@ -33,7 +33,7 @@ function SettingsContent() {
             initialValues={{
                 phase1: settings.phase1,
                 phase2: settings.phase2,
-                phase3: settings.phase3,
+                powerDetection: settings.powerDetection,
                 channelMapping: settings.channelMapping,
                 localization: settings.localization,
             }}

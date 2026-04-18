@@ -62,12 +62,9 @@ export const ControllerView = (): React.JSX.Element => {
             username: '',
             password: '',
             settings: {
-                minFreqHz: controller.settings.minFreqHz,
-                maxFreqHz: controller.settings.maxFreqHz,
-                sampleRate: controller.settings.sampleRate,
-                vgaGain: controller.settings.vgaGain,
-                lnaGain: controller.settings.lnaGain,
-                bufferSize: controller.settings.bufferSize,
+                lnaGainDb: controller.settings.lnaGainDb,
+                vgaGainDb: controller.settings.vgaGainDb,
+                bufferSizeKb: controller.settings.bufferSizeKb,
             },
         })
         setAddModalOpen(true)

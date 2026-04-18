@@ -52,3 +52,4 @@ android/build/
 **/build/
 .gradle/
 coverage
+.cxx

@@ -1,29 +1,49 @@
-import { Doc } from '@backend/dataModel'
-
-type Settings = Doc<'settings'>
-
 export type ScanSettings = {
     minFrequencyHz: number
     maxFrequencyHz: number
-    sampleRateHz?: number
-    lnaGainDb?: number
-    vgaGainDb?: number
-    bufferSizeKb?: number
-    chunksPerStep?: number
+    sampleRateHz: number
+    lnaGainDb: number
+    vgaGainDb: number
+    bufferSizeKb: number
 }
 
-export type AlgoPhase1 = Settings['phase1']
+export type AlgoPhase1 = {
+    sigBwHz: number
+    perOlf: number
+    numSamUseRatio: number
+    maxTh: number
+    kaiserBeta: number
+    highpassOrder: number
+    highpassCutoff: number
+    noiseMinPeaks: number
+    noiseMaxDiff: number
+}
 
-export type AlgoPhase2 = Settings['phase2']
+export type AlgoPhase2 = {
+    requiredFs1Hz: number
+    chSpacingHz: number
+    perOlfP1: number
+    numSamUseRatioP1: number
+    maxThP1: number
+    kaiserBetaP1: number
+    lpfOrder: number
+    lpfCutoff: number
+    noiseMinPeaksP2: number
+    noiseMaxDiffP2: number
+    dcGuardHz: number
+}
 
-export type AlgoPhase3 = Settings['phase3']
-
-export type AlgoChannelMapping = Settings['channelMapping']
+export type AlgoChannelMapping = {
+    bandStartFreqHz: number
+    bandEndFreqHz: number
+    channelSpacingMapHz: number
+    powerCalOffsetDb: number
+    sidelobeDedupHz: number
+}
 
 export type AlgoSettings = {
     phase1: AlgoPhase1
     phase2: AlgoPhase2
-    phase3: AlgoPhase3
     channelMapping: AlgoChannelMapping
 }
 

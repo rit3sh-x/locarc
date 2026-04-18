@@ -9,12 +9,9 @@ export const editControllerSchema = z.object({
         .string()
         .refine((v) => v === '' || v.length >= 8, 'Password must be at least 8 characters'),
     settings: z.object({
-        minFreqHz: z.number().positive(),
-        maxFreqHz: z.number().positive(),
-        sampleRate: z.number().positive(),
-        vgaGain: z.number().min(0).max(62),
-        lnaGain: z.number(),
-        bufferSize: z.number().positive(),
+        lnaGainDb: z.number(),
+        vgaGainDb: z.number().min(0).max(62),
+        bufferSizeKb: z.number().positive(),
         powerCalOffsetDbOverride: z.union([z.number(), z.undefined()]),
     }),
 })
@@ -24,11 +21,8 @@ export const addControllerSchema = z.object({
     username: z.string().min(3, 'Username must be at least 3 characters'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     settings: z.object({
-        minFreqHz: z.number().positive(),
-        maxFreqHz: z.number().positive(),
-        sampleRate: z.number().positive(),
-        vgaGain: z.number().min(0).max(62),
-        lnaGain: z.number(),
-        bufferSize: z.number().positive(),
+        lnaGainDb: z.number(),
+        vgaGainDb: z.number().min(0).max(62),
+        bufferSizeKb: z.number().positive(),
     }),
 })

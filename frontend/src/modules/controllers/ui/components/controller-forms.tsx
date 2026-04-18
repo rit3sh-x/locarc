@@ -54,23 +54,23 @@ export const ViewControllerModal = ({
                         </>
                     )}
                     <FieldDisplay
-                        label="Min Frequency"
-                        value={`${(controller.settings.minFreqHz / 1_000_000).toFixed(2)} MHz`}
+                        label="VGA Gain"
+                        value={`${controller.settings.vgaGainDb} dB`}
                     />
                     <FieldDisplay
-                        label="Max Frequency"
-                        value={`${(controller.settings.maxFreqHz / 1_000_000).toFixed(2)} MHz`}
+                        label="LNA Gain"
+                        value={`${controller.settings.lnaGainDb} dB`}
                     />
-                    <FieldDisplay
-                        label="Sample Rate"
-                        value={`${controller.settings.sampleRate} Hz`}
-                    />
-                    <FieldDisplay label="VGA Gain" value={`${controller.settings.vgaGain} dB`} />
-                    <FieldDisplay label="LNA Gain" value={`${controller.settings.lnaGain} dB`} />
                     <FieldDisplay
                         label="Buffer Size"
-                        value={`${controller.settings.bufferSize} KB`}
+                        value={`${controller.settings.bufferSizeKb} KB`}
                     />
+                    {controller.settings.powerCalOffsetDbOverride !== undefined && (
+                        <FieldDisplay
+                            label="Power Cal Offset (override)"
+                            value={`${controller.settings.powerCalOffsetDbOverride} dB`}
+                        />
+                    )}
                 </div>
             </DialogContent>
         </Dialog>
@@ -107,12 +107,9 @@ export function EditControllerModal({
             username: controller.username,
             password: '',
             settings: {
-                minFreqHz: controller.settings.minFreqHz,
-                maxFreqHz: controller.settings.maxFreqHz,
-                sampleRate: controller.settings.sampleRate,
-                vgaGain: controller.settings.vgaGain,
-                lnaGain: controller.settings.lnaGain,
-                bufferSize: controller.settings.bufferSize,
+                lnaGainDb: controller.settings.lnaGainDb,
+                vgaGainDb: controller.settings.vgaGainDb,
+                bufferSizeKb: controller.settings.bufferSizeKb,
                 powerCalOffsetDbOverride: controller.settings.powerCalOffsetDbOverride,
             },
         },
@@ -200,85 +197,7 @@ export function EditControllerModal({
                     </form.Field>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <form.Field name="settings.minFreqHz">
-                            {(f) => {
-                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel>Min Frequency (Hz)</FieldLabel>
-                                        <Input
-                                            type="number"
-                                            value={f.state.value}
-                                            onBlur={f.handleBlur}
-                                            onChange={(e) => f.handleChange(toFloat(e))}
-                                            placeholder="e.g., 1000000"
-                                        />
-                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
-                                    </Field>
-                                )
-                            }}
-                        </form.Field>
-                        <form.Field name="settings.maxFreqHz">
-                            {(f) => {
-                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel>Max Frequency (Hz)</FieldLabel>
-                                        <Input
-                                            type="number"
-                                            value={f.state.value}
-                                            onBlur={f.handleBlur}
-                                            onChange={(e) => f.handleChange(toFloat(e))}
-                                            placeholder="e.g., 6000000000"
-                                        />
-                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
-                                    </Field>
-                                )
-                            }}
-                        </form.Field>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <form.Field name="settings.sampleRate">
-                            {(f) => {
-                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel>Sample Rate (Hz)</FieldLabel>
-                                        <Input
-                                            type="number"
-                                            value={f.state.value}
-                                            onBlur={f.handleBlur}
-                                            onChange={(e) => f.handleChange(toFloat(e))}
-                                            placeholder="Sample rate"
-                                        />
-                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
-                                    </Field>
-                                )
-                            }}
-                        </form.Field>
-                        <form.Field name="settings.bufferSize">
-                            {(f) => {
-                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel>Buffer Size (KB)</FieldLabel>
-                                        <Input
-                                            type="number"
-                                            value={f.state.value}
-                                            onBlur={f.handleBlur}
-                                            onChange={(e) => f.handleChange(toFloat(e))}
-                                            placeholder="Buffer size"
-                                        />
-                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
-                                    </Field>
-                                )
-                            }}
-                        </form.Field>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <form.Field name="settings.vgaGain">
+                        <form.Field name="settings.vgaGainDb">
                             {(f) => {
                                 const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
                                 return (
@@ -296,7 +215,7 @@ export function EditControllerModal({
                                 )
                             }}
                         </form.Field>
-                        <form.Field name="settings.lnaGain">
+                        <form.Field name="settings.lnaGainDb">
                             {(f) => {
                                 const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
                                 return (
@@ -308,6 +227,27 @@ export function EditControllerModal({
                                             onBlur={f.handleBlur}
                                             onChange={(e) => f.handleChange(toFloat(e))}
                                             placeholder="LNA gain"
+                                        />
+                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
+                                    </Field>
+                                )
+                            }}
+                        </form.Field>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <form.Field name="settings.bufferSizeKb">
+                            {(f) => {
+                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
+                                return (
+                                    <Field data-invalid={isInvalid}>
+                                        <FieldLabel>Buffer Size (KB)</FieldLabel>
+                                        <Input
+                                            type="number"
+                                            value={f.state.value}
+                                            onBlur={f.handleBlur}
+                                            onChange={(e) => f.handleChange(toFloat(e))}
+                                            placeholder="Buffer size"
                                         />
                                         {isInvalid && <FieldError errors={f.state.meta.errors} />}
                                     </Field>
@@ -369,12 +309,9 @@ const DEFAULT_ADD_CONTROLLER_VALUES: AddControllerFormValues = {
     username: '',
     password: '',
     settings: {
-        minFreqHz: 1000000,
-        maxFreqHz: 6000000000,
-        sampleRate: 2000000,
-        vgaGain: 0,
-        lnaGain: 0,
-        bufferSize: 1024,
+        lnaGainDb: 0,
+        vgaGainDb: 0,
+        bufferSizeKb: 1024,
     },
 }
 
@@ -492,85 +429,7 @@ export function AddControllerModal({
                     </form.Field>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <form.Field name="settings.minFreqHz">
-                            {(f) => {
-                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel>Min Frequency (Hz)</FieldLabel>
-                                        <Input
-                                            type="number"
-                                            value={f.state.value}
-                                            onBlur={f.handleBlur}
-                                            onChange={(e) => f.handleChange(toFloat(e))}
-                                            placeholder="e.g., 1000000"
-                                        />
-                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
-                                    </Field>
-                                )
-                            }}
-                        </form.Field>
-                        <form.Field name="settings.maxFreqHz">
-                            {(f) => {
-                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel>Max Frequency (Hz)</FieldLabel>
-                                        <Input
-                                            type="number"
-                                            value={f.state.value}
-                                            onBlur={f.handleBlur}
-                                            onChange={(e) => f.handleChange(toFloat(e))}
-                                            placeholder="e.g., 6000000000"
-                                        />
-                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
-                                    </Field>
-                                )
-                            }}
-                        </form.Field>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <form.Field name="settings.sampleRate">
-                            {(f) => {
-                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel>Sample Rate (Hz)</FieldLabel>
-                                        <Input
-                                            type="number"
-                                            value={f.state.value}
-                                            onBlur={f.handleBlur}
-                                            onChange={(e) => f.handleChange(toFloat(e))}
-                                            placeholder="Sample rate"
-                                        />
-                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
-                                    </Field>
-                                )
-                            }}
-                        </form.Field>
-                        <form.Field name="settings.bufferSize">
-                            {(f) => {
-                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel>Buffer Size (KB)</FieldLabel>
-                                        <Input
-                                            type="number"
-                                            value={f.state.value}
-                                            onBlur={f.handleBlur}
-                                            onChange={(e) => f.handleChange(toFloat(e))}
-                                            placeholder="Buffer size"
-                                        />
-                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
-                                    </Field>
-                                )
-                            }}
-                        </form.Field>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <form.Field name="settings.vgaGain">
+                        <form.Field name="settings.vgaGainDb">
                             {(f) => {
                                 const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
                                 return (
@@ -588,7 +447,7 @@ export function AddControllerModal({
                                 )
                             }}
                         </form.Field>
-                        <form.Field name="settings.lnaGain">
+                        <form.Field name="settings.lnaGainDb">
                             {(f) => {
                                 const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
                                 return (
@@ -607,6 +466,25 @@ export function AddControllerModal({
                             }}
                         </form.Field>
                     </div>
+
+                    <form.Field name="settings.bufferSizeKb">
+                        {(f) => {
+                            const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
+                            return (
+                                <Field data-invalid={isInvalid}>
+                                    <FieldLabel>Buffer Size (KB)</FieldLabel>
+                                    <Input
+                                        type="number"
+                                        value={f.state.value}
+                                        onBlur={f.handleBlur}
+                                        onChange={(e) => f.handleChange(toFloat(e))}
+                                        placeholder="Buffer size"
+                                    />
+                                    {isInvalid && <FieldError errors={f.state.meta.errors} />}
+                                </Field>
+                            )
+                        }}
+                    </form.Field>
 
                     <DialogFooter>
                         <form.Subscribe selector={(s) => s.canSubmit}>

@@ -80,6 +80,25 @@ export const getController = query({
             )
             .unique();
 
+        const latestBatch = await ctx.db
+            .query("jobBatch")
+            .withIndex("by_admin_id", (q) =>
+                q.eq("adminId", controller.adminId)
+            )
+            .order("desc")
+            .first();
+
+        const DEFAULT_MIN_FREQ_HZ = 400_000_000;
+        const DEFAULT_MAX_FREQ_HZ = 440_000_000;
+        const DEFAULT_SAMPLE_RATE_HZ = 10_000_000;
+
+        const minFrequencyHz =
+            latestBatch?.minFrequencyHz ?? DEFAULT_MIN_FREQ_HZ;
+        const maxFrequencyHz =
+            latestBatch?.maxFrequencyHz ?? DEFAULT_MAX_FREQ_HZ;
+        const sampleRateHz =
+            latestBatch?.sampleRateHz ?? DEFAULT_SAMPLE_RATE_HZ;
+
         return {
             started: user.started,
             name: user.name,
@@ -87,26 +106,27 @@ export const getController = query({
             longitude: controller.longitudeE6 / LOCATION_MULTIPLIER,
             latitude: controller.latitudeE6 / LOCATION_MULTIPLIER,
             rfSettings: {
-                minFreq: controller.minFreqHz,
-                maxFreq: controller.maxFreqHz,
-                sampleRate: controller.sampleRate,
-                vgaGain: controller.vgaGain,
-                lnaGain: controller.lnaGain,
-                bufferSize: controller.bufferSize,
+                minFrequencyHz,
+                maxFrequencyHz,
+                sampleRateHz,
+                lnaGainDb: controller.lnaGainDb,
+                vgaGainDb: controller.vgaGainDb,
+                bufferSizeKb: controller.bufferSizeKb,
             },
             algoSettings: algoSettings
                 ? {
                       phase1: algoSettings.phase1,
                       phase2: algoSettings.phase2,
-                      phase3:
-                          controller.powerCalOffsetDbOverride !== undefined
-                              ? {
-                                    ...algoSettings.phase3,
-                                    powerCalOffsetDb:
-                                        controller.powerCalOffsetDbOverride,
-                                }
-                              : algoSettings.phase3,
-                      channelMapping: algoSettings.channelMapping,
+                      channelMapping: {
+                          ...algoSettings.channelMapping,
+                          powerCalOffsetDb:
+                              controller.powerCalOffsetDbOverride ??
+                              algoSettings.channelMapping.powerCalOffsetDb,
+                      },
+                      ...(algoSettings.powerDetection && {
+                          powerDetection: algoSettings.powerDetection,
+                      }),
+                      localization: algoSettings.localization,
                   }
                 : null,
         };

@@ -32,12 +32,24 @@ android {
   defaultConfig {
     versionCode 1
     versionName "0.7.6"
+    ndk {
+      abiFilters "arm64-v8a", "armeabi-v7a"
+    }
+    externalNativeBuild {
+      cmake {
+        cppFlags "-std=c++17"
+        cFlags "-std=c11"
+        arguments "-DANDROID_STL=c++_shared"
+      }
+    }
+  }
+  externalNativeBuild {
+    cmake {
+      path "CMakeLists.txt"
+      version "3.22.1"
+    }
   }
   lintOptions {
     abortOnError false
   }
-}
-
-dependencies {
-  implementation "com.github.wendykierp:JTransforms:3.2"
 }

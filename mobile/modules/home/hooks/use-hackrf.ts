@@ -128,16 +128,12 @@ export function useHackrf() {
 
         const cancelled = { current: false }
 
-        const settings: ScanSettings = {
-            minFrequencyHz: controller.rfSettings.minFreq,
-            maxFrequencyHz: controller.rfSettings.maxFreq,
-            sampleRateHz: controller.rfSettings.sampleRate,
-            lnaGainDb: controller.rfSettings.lnaGain,
-            vgaGainDb: controller.rfSettings.vgaGain,
-            bufferSizeKb: controller.rfSettings.bufferSize,
-        }
-
-        runScan(batchId as Id<'jobBatch'>, settings, controller.algoSettings, cancelled)
+        runScan(
+            batchId,
+            controller.rfSettings,
+            controller.algoSettings,
+            cancelled,
+        )
 
         return () => {
             cancelled.current = true
