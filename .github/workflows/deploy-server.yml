@@ -1,78 +1,63 @@
-name: Deploy Server to Cloud Run
+name: Deploy Server to Hugging Face Spaces
 
 on:
   push:
     branches: [main]
     paths:
       - "server/**"
+      - ".github/workflows/deploy-server.yml"
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-
-    env:
-      SERVICE: locarc-api
-      REGION: ${{ vars.GCP_REGION || 'us-central1' }}
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: Authenticate to Google Cloud
-        id: auth
-        uses: google-github-actions/auth@v3
+      - name: Sync server/ to HF Space
+        uses: huggingface/hub-sync@v0.1.0
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          github_repo_id: ${{ github.repository }}
+          huggingface_repo_id: ${{ vars.HF_USERNAME }}/${{ vars.HF_SPACE_NAME }}
+          hf_token: ${{ secrets.HF_TOKEN }}
+          repo_type: space
+          space_sdk: docker
+          subdirectory: server
 
-      - name: Cleanup old Artifact Registry images
-        run: |
-          # Delete all images in the cloud-run-source-deploy repo (auto-created by Cloud Run)
-          REPO="${{ env.REGION }}-docker.pkg.dev/${{ steps.auth.outputs.project_id }}/cloud-run-source-deploy/${{ env.SERVICE }}"
-          DIGESTS=$(gcloud artifacts docker images list "$REPO" --format="value(version)" 2>/dev/null || true)
-          if [ -n "$DIGESTS" ]; then
-            for DIGEST in $DIGESTS; do
-              gcloud artifacts docker images delete "$REPO@$DIGEST" --quiet --delete-tags 2>/dev/null || true
-            done
-            echo "Cleaned up old images"
-          else
-            echo "No existing images to clean"
-          fi
-
-      - name: Cleanup Cloud Build storage
-        run: |
-          PROJECT_ID="${{ steps.auth.outputs.project_id }}"
-          # Remove Cloud Build source tarballs and logs
-          gcloud storage rm --recursive "gs://${PROJECT_ID}_cloudbuild/**" 2>/dev/null || echo "No build artifacts to clean"
-
-      - name: Deploy to Cloud Run
-        id: deploy
-        uses: google-github-actions/deploy-cloudrun@v3
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          service: ${{ env.SERVICE }}
-          source: server/
-          region: ${{ env.REGION }}
-          flags: |
-            --port=8080
-            --memory=1Gi
-            --cpu=1
-            --timeout=90
-            --min-instances=0
-            --max-instances=3
-            --allow-unauthenticated
-          env_vars: |
-            WEBHOOK_SECRET=${{ secrets.WEBHOOK_SECRET }}
-            CONVEX_SITE_URL=${{ vars.CONVEX_SITE_URL }}
+          python-version: "3.12"
 
-      - name: Output URL
+      - name: Sync Space secrets
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO_ID: ${{ vars.HF_USERNAME }}/${{ vars.HF_SPACE_NAME }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          CONVEX_SITE_URL: ${{ vars.CONVEX_SITE_URL }}
         run: |
-          echo "Deployed to ${{ steps.deploy.outputs.url }}"
-          echo "### 🚀 Server Deployed" >> $GITHUB_STEP_SUMMARY
+          pip install --quiet "huggingface_hub>=0.26"
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          repo_id = os.environ["HF_REPO_ID"]
+          for key in ("WEBHOOK_SECRET", "CONVEX_SITE_URL"):
+              val = os.environ.get(key, "")
+              if val:
+                  print(f"Set {key}")
+                  api.add_space_secret(repo_id=repo_id, key=key, value=val)
+              else:
+                  print(f"Skip {key} (empty)")
+          PY
+
+      - name: Summary
+        run: |
+          SPACE="${{ vars.HF_USERNAME }}/${{ vars.HF_SPACE_NAME }}"
+          SUB=$(echo "$SPACE" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+          echo "### 🚀 Server Deployed to HF Spaces" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Service:** \`${{ env.SERVICE }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Region:** \`${{ env.REGION }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**URL:** ${{ steps.deploy.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Space:** \`$SPACE\`" >> $GITHUB_STEP_SUMMARY
+          echo "**UI:** https://huggingface.co/spaces/$SPACE" >> $GITHUB_STEP_SUMMARY
+          echo "**Direct:** https://$SUB.hf.space" >> $GITHUB_STEP_SUMMARY
