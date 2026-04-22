@@ -18,6 +18,7 @@ static inline HackrfDriver *drv(jlong handle)
 }
 
 static std::atomic<bool> g_scanCancel{false};
+static std::atomic<bool> g_deviceWasReset{false};
 
 extern "C"
 {
@@ -172,6 +173,11 @@ extern "C"
 
         g_scanCancel.store(false);
         auto results = locarc::runFullScan(*d, sp, cfg, g_scanCancel);
+        if (!d->isOpen())
+        {
+            LOGE("nativeRunFullScan: device closed (reset fired) — flagging wrapper for recycle");
+            g_deviceWasReset.store(true);
+        }
 
         const jsize n = (jsize)results.size() * 2;
         jdoubleArray out = env->NewDoubleArray(n);
@@ -192,5 +198,22 @@ extern "C"
     Java_com_locarc_mobile_HackrfNative_nativeCancelScan(JNIEnv *, jclass)
     {
         g_scanCancel.store(true);
+    }
+
+    JNIEXPORT jint JNICALL
+    Java_com_locarc_mobile_HackrfNative_nativeReset(JNIEnv *, jclass, jlong h)
+    {
+        auto *d = drv(h);
+        if (!d)
+            return -1;
+        int rc = d->reset();
+        g_deviceWasReset.store(true);
+        return rc;
+    }
+
+    JNIEXPORT jboolean JNICALL
+    Java_com_locarc_mobile_HackrfNative_nativeConsumeResetFlag(JNIEnv *, jclass)
+    {
+        return g_deviceWasReset.exchange(false) ? JNI_TRUE : JNI_FALSE;
     }
 }

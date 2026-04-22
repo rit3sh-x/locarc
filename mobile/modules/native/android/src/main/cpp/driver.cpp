@@ -27,6 +27,7 @@ namespace locarc
             AMP_ENABLE = 17,
             SET_LNA_GAIN = 19,
             SET_VGA_GAIN = 20,
+            RESET = 30,
         };
 
         inline uint8_t CTRL_OUT()
@@ -229,6 +230,23 @@ namespace locarc
         if (drained > 0) {
             LOGI("flushPipe: drained %d stale bytes", drained);
         }
+    }
+
+    int HackrfDriver::reset()
+    {
+        if (!dev_)
+            return LIBUSB_ERROR_NO_DEVICE;
+        LOGW("reset: sending HACKRF_VENDOR_REQUEST_RESET — device will reboot");
+        if (transceiverMode_ != TRANSCEIVER_MODE_OFF)
+        {
+            controlOut(SET_TRANSCEIVER_MODE, (uint16_t)TRANSCEIVER_MODE_OFF, 0, nullptr, 0);
+            transceiverMode_ = TRANSCEIVER_MODE_OFF;
+        }
+        int rc = libusb_control_transfer(
+            dev_, CTRL_OUT(), RESET, 0, 0, nullptr, 0, 100);
+        LOGI("reset: control_transfer rc=%d (errors expected — device rebooting)", rc);
+        close();
+        return rc;
     }
 
     int HackrfDriver::readSamples(uint8_t *dst, int totalBytes, int timeoutMs)

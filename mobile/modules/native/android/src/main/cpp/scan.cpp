@@ -99,20 +99,33 @@ namespace locarc
 
         auto scanStart = std::chrono::steady_clock::now();
 
+        auto resetAndBail = [&](const char *why) -> std::vector<PowerMeasurement> {
+            LOGE("fatal: %s — issuing HackRF reset", why);
+            drv.reset();
+            return {};
+        };
+
         drv.flushPipe();
 
-        drv.setSampleRate((uint32_t)sp.sampleRateHz, 1);
+        if (drv.setSampleRate((uint32_t)sp.sampleRateHz, 1) < 0)
+            return resetAndBail("setSampleRate");
         const int targetBb = (int)(sp.sampleRateHz * 0.75);
         const int bbFilter = computeBasebandFilterBandwidth(std::max(1, targetBb));
-        drv.setBasebandFilterBandwidth((uint32_t)bbFilter);
-        drv.setLnaGain((uint8_t)sp.lnaGainDb);
-        drv.setVgaGain((uint8_t)sp.vgaGainDb);
+        if (drv.setBasebandFilterBandwidth((uint32_t)bbFilter) < 0)
+            return resetAndBail("setBasebandFilterBandwidth");
+        if (drv.setLnaGain((uint8_t)sp.lnaGainDb) < 0)
+            return resetAndBail("setLnaGain");
+        if (drv.setVgaGain((uint8_t)sp.vgaGainDb) < 0)
+            return resetAndBail("setVgaGain");
         LOGI("configured: sr=%d Hz bb=%d Hz lna=%d vga=%d",
              sp.sampleRateHz, bbFilter, sp.lnaGainDb, sp.vgaGainDb);
 
         const int64_t stepHz = std::max<int64_t>(1, sp.sampleRateHz / 2);
         std::vector<PowerMeasurement> all;
         std::vector<uint8_t> buf(sp.perStepBytes);
+
+        constexpr int MAX_CONSECUTIVE_ERRORS = 3;
+        int consecutiveErrors = 0;
 
         int stepIdx = 0;
         for (int64_t f = sp.minFrequencyHz; f <= sp.maxFrequencyHz; f += stepHz, ++stepIdx)
@@ -126,24 +139,45 @@ namespace locarc
             const auto stepStart = std::chrono::steady_clock::now();
             LOGI("sweep[%d]: tune to %.3f MHz", stepIdx, f / 1e6);
 
-            if (drv.setFrequency((uint64_t)f) != 8)
+            const int freqRc = drv.setFrequency((uint64_t)f);
+            if (freqRc < 0)
+            {
+                if (++consecutiveErrors >= MAX_CONSECUTIVE_ERRORS)
+                    return resetAndBail("setFrequency");
+                continue;
+            }
+            if (freqRc != 8)
                 continue;
             std::this_thread::sleep_for(std::chrono::milliseconds(TUNE_SETTLE_MS));
 
-            if (drv.setTransceiverMode(HackrfDriver::TRANSCEIVER_MODE_RECEIVE) != 0)
+            const int txRc = drv.setTransceiverMode(HackrfDriver::TRANSCEIVER_MODE_RECEIVE);
+            if (txRc < 0)
             {
-                LOGE("sweep[%d]: startRx failed", stepIdx);
+                if (++consecutiveErrors >= MAX_CONSECUTIVE_ERRORS)
+                    return resetAndBail("setTransceiverMode");
+                continue;
+            }
+            if (txRc != 0)
+            {
+                LOGE("sweep[%d]: startRx failed rc=%d", stepIdx, txRc);
                 continue;
             }
 
             int got = drv.readSamples(buf.data(), sp.perStepBytes, READ_TIMEOUT_MS);
             drv.setTransceiverMode(HackrfDriver::TRANSCEIVER_MODE_OFF);
 
+            if (got <= 0)
+            {
+                if (++consecutiveErrors >= MAX_CONSECUTIVE_ERRORS)
+                    return resetAndBail("readSamples");
+                continue;
+            }
             if (got < sp.perStepBytes)
             {
                 LOGW("sweep[%d]: short read %d/%d; skipping", stepIdx, got, sp.perStepBytes);
                 continue;
             }
+            consecutiveErrors = 0;
 
             bool anyNonZero = false;
             for (int i = 0; i < std::min(got, 16); ++i)

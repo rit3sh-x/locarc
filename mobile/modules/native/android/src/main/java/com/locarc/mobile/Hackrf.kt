@@ -103,6 +103,16 @@ class Hackrf private constructor(
         try { connection.close() } catch (_: Exception) {}
     }
 
+    fun reset(): Int {
+        if (handle_ == 0L) return -1
+        val rc = HackrfNative.nativeReset(handle_)
+        handle_ = 0L
+        transceiverMode = HACKRF_TRANSCEIVER_MODE_OFF
+        try { connection.close() } catch (_: Exception) {}
+        Log.w(TAG, "Hackrf reset sent (rc=$rc) — device rebooting, handle closed")
+        return rc
+    }
+
     private fun checkHandle() {
         if (handle == 0L) throw UsbException("Hackrf handle is closed")
     }

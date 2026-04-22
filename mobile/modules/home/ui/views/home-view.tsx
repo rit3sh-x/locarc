@@ -2,6 +2,7 @@ import { ScrollView, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from '@/components/ui/text'
 import { SignOut } from '../components/sign-out'
+import { ResetDevice } from '../components/reset-device'
 import { StatusIndicator } from '../components/status-indicator'
 import { ConnectionCard } from '../components/connection-card'
 import { RfSettingsCard } from '../components/rf-settings-card'
@@ -22,7 +23,10 @@ export const HomeView = () => {
                 <Text className="text-foreground text-lg font-semibold" numberOfLines={1}>
                     {controller?.name ?? 'Loading...'}
                 </Text>
-                <SignOut />
+                <View className="flex-row items-center gap-2">
+                    <ResetDevice />
+                    <SignOut />
+                </View>
             </View>
 
             <ScrollView

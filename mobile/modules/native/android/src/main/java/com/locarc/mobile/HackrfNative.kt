@@ -40,5 +40,9 @@ object HackrfNative {
     ): DoubleArray
 
     external fun nativeCancelScan()
+
+    external fun nativeReset(handle: Long): Int
+
+    external fun nativeConsumeResetFlag(): Boolean
 }
 

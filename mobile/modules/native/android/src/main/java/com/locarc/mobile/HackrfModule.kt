@@ -364,6 +364,13 @@ class HackrfModule : Module() {
                     }
                 } finally {
                     scanJob = null
+                    if (HackrfNative.nativeConsumeResetFlag()) {
+                        Log.w(TAG, "native scan issued HackRF reset — recycling wrapper")
+                        try { hackrf?.close() } catch (_: Exception) {}
+                        hackrf = null
+                        forceFullResetOnNextInit = true
+                        lifetimeTotalResets += 1
+                    }
                     try { ScanForegroundService.stop(ctx) } catch (_: Exception) {}
                 }
             }
@@ -377,6 +384,31 @@ class HackrfModule : Module() {
                 promise.resolve(true)
             } catch (e: Exception) {
                 promise.reject("E_CLOSE", e.message ?: "Failed to close", e)
+            }
+        }
+
+        AsyncFunction("resetDevice") { promise: Promise ->
+            try {
+                val job = scanJob
+                if (job != null && job.isActive) {
+                    HackrfNative.nativeCancelScan()
+                }
+                val dev = hackrf
+                if (dev == null) {
+                    Log.i(TAG, "resetDevice: no cached handle — nothing to reset")
+                    promise.resolve(0)
+                    return@AsyncFunction
+                }
+                val rc = dev.reset()
+                hackrf = null
+                forceFullResetOnNextInit = true
+                lifetimeTotalResets += 1
+                HackrfNative.nativeConsumeResetFlag()
+                Log.w(TAG, "resetDevice: reset issued rc=$rc (lifetime resets=$lifetimeTotalResets)")
+                promise.resolve(rc)
+            } catch (e: Exception) {
+                Log.e(TAG, "resetDevice failed", e)
+                promise.reject("E_RESET", e.message ?: "reset failed", e)
             }
         }
 

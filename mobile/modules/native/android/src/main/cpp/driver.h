@@ -34,6 +34,8 @@ namespace locarc
 
         void flushPipe();
 
+        int reset();
+
     private:
         int controlOut(uint8_t request, uint16_t value, uint16_t index,
                        const uint8_t *data, int len);
