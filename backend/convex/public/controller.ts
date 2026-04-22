@@ -80,25 +80,6 @@ export const getController = query({
             )
             .unique();
 
-        const latestBatch = await ctx.db
-            .query("jobBatch")
-            .withIndex("by_admin_id", (q) =>
-                q.eq("adminId", controller.adminId)
-            )
-            .order("desc")
-            .first();
-
-        const DEFAULT_MIN_FREQ_HZ = 400_000_000;
-        const DEFAULT_MAX_FREQ_HZ = 440_000_000;
-        const DEFAULT_SAMPLE_RATE_HZ = 10_000_000;
-
-        const minFrequencyHz =
-            latestBatch?.minFrequencyHz ?? DEFAULT_MIN_FREQ_HZ;
-        const maxFrequencyHz =
-            latestBatch?.maxFrequencyHz ?? DEFAULT_MAX_FREQ_HZ;
-        const sampleRateHz =
-            latestBatch?.sampleRateHz ?? DEFAULT_SAMPLE_RATE_HZ;
-
         return {
             started: user.started,
             name: user.name,
@@ -106,9 +87,9 @@ export const getController = query({
             longitude: controller.longitudeE6 / LOCATION_MULTIPLIER,
             latitude: controller.latitudeE6 / LOCATION_MULTIPLIER,
             rfSettings: {
-                minFrequencyHz,
-                maxFrequencyHz,
-                sampleRateHz,
+                minFrequencyHz: controller.minFrequencyHz,
+                maxFrequencyHz: controller.maxFrequencyHz,
+                sampleRateHz: controller.sampleRateHz,
                 lnaGainDb: controller.lnaGainDb,
                 vgaGainDb: controller.vgaGainDb,
                 bufferSizeKb: controller.bufferSizeKb,

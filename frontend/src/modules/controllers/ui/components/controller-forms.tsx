@@ -54,6 +54,18 @@ export const ViewControllerModal = ({
                         </>
                     )}
                     <FieldDisplay
+                        label="Min Frequency"
+                        value={`${(controller.settings.minFrequencyHz / 1_000_000).toFixed(3)} MHz`}
+                    />
+                    <FieldDisplay
+                        label="Max Frequency"
+                        value={`${(controller.settings.maxFrequencyHz / 1_000_000).toFixed(3)} MHz`}
+                    />
+                    <FieldDisplay
+                        label="Sample Rate"
+                        value={`${(controller.settings.sampleRateHz / 1_000_000).toFixed(3)} MHz`}
+                    />
+                    <FieldDisplay
                         label="VGA Gain"
                         value={`${controller.settings.vgaGainDb} dB`}
                     />
@@ -107,6 +119,9 @@ export function EditControllerModal({
             username: controller.username,
             password: '',
             settings: {
+                minFrequencyHz: controller.settings.minFrequencyHz,
+                maxFrequencyHz: controller.settings.maxFrequencyHz,
+                sampleRateHz: controller.settings.sampleRateHz,
                 lnaGainDb: controller.settings.lnaGainDb,
                 vgaGainDb: controller.settings.vgaGainDb,
                 bufferSizeKb: controller.settings.bufferSizeKb,
@@ -195,6 +210,63 @@ export function EditControllerModal({
                             )
                         }}
                     </form.Field>
+
+                    <div className="grid grid-cols-3 gap-4">
+                        <form.Field name="settings.minFrequencyHz">
+                            {(f) => {
+                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
+                                return (
+                                    <Field data-invalid={isInvalid}>
+                                        <FieldLabel>Min Frequency (Hz)</FieldLabel>
+                                        <Input
+                                            type="number"
+                                            value={f.state.value}
+                                            onBlur={f.handleBlur}
+                                            onChange={(e) => f.handleChange(toFloat(e))}
+                                            placeholder="e.g. 400000000"
+                                        />
+                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
+                                    </Field>
+                                )
+                            }}
+                        </form.Field>
+                        <form.Field name="settings.maxFrequencyHz">
+                            {(f) => {
+                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
+                                return (
+                                    <Field data-invalid={isInvalid}>
+                                        <FieldLabel>Max Frequency (Hz)</FieldLabel>
+                                        <Input
+                                            type="number"
+                                            value={f.state.value}
+                                            onBlur={f.handleBlur}
+                                            onChange={(e) => f.handleChange(toFloat(e))}
+                                            placeholder="e.g. 440000000"
+                                        />
+                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
+                                    </Field>
+                                )
+                            }}
+                        </form.Field>
+                        <form.Field name="settings.sampleRateHz">
+                            {(f) => {
+                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
+                                return (
+                                    <Field data-invalid={isInvalid}>
+                                        <FieldLabel>Sample Rate (Hz)</FieldLabel>
+                                        <Input
+                                            type="number"
+                                            value={f.state.value}
+                                            onBlur={f.handleBlur}
+                                            onChange={(e) => f.handleChange(toFloat(e))}
+                                            placeholder="e.g. 10000000"
+                                        />
+                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
+                                    </Field>
+                                )
+                            }}
+                        </form.Field>
+                    </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <form.Field name="settings.vgaGainDb">
@@ -309,6 +381,9 @@ const DEFAULT_ADD_CONTROLLER_VALUES: AddControllerFormValues = {
     username: '',
     password: '',
     settings: {
+        minFrequencyHz: 400_000_000,
+        maxFrequencyHz: 440_000_000,
+        sampleRateHz: 10_000_000,
         lnaGainDb: 0,
         vgaGainDb: 0,
         bufferSizeKb: 1024,
@@ -427,6 +502,63 @@ export function AddControllerModal({
                             )
                         }}
                     </form.Field>
+
+                    <div className="grid grid-cols-3 gap-4">
+                        <form.Field name="settings.minFrequencyHz">
+                            {(f) => {
+                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
+                                return (
+                                    <Field data-invalid={isInvalid}>
+                                        <FieldLabel>Min Frequency (Hz)</FieldLabel>
+                                        <Input
+                                            type="number"
+                                            value={f.state.value}
+                                            onBlur={f.handleBlur}
+                                            onChange={(e) => f.handleChange(toFloat(e))}
+                                            placeholder="e.g. 400000000"
+                                        />
+                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
+                                    </Field>
+                                )
+                            }}
+                        </form.Field>
+                        <form.Field name="settings.maxFrequencyHz">
+                            {(f) => {
+                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
+                                return (
+                                    <Field data-invalid={isInvalid}>
+                                        <FieldLabel>Max Frequency (Hz)</FieldLabel>
+                                        <Input
+                                            type="number"
+                                            value={f.state.value}
+                                            onBlur={f.handleBlur}
+                                            onChange={(e) => f.handleChange(toFloat(e))}
+                                            placeholder="e.g. 440000000"
+                                        />
+                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
+                                    </Field>
+                                )
+                            }}
+                        </form.Field>
+                        <form.Field name="settings.sampleRateHz">
+                            {(f) => {
+                                const isInvalid = !!f.state.meta.isTouched && !f.state.meta.isValid
+                                return (
+                                    <Field data-invalid={isInvalid}>
+                                        <FieldLabel>Sample Rate (Hz)</FieldLabel>
+                                        <Input
+                                            type="number"
+                                            value={f.state.value}
+                                            onBlur={f.handleBlur}
+                                            onChange={(e) => f.handleChange(toFloat(e))}
+                                            placeholder="e.g. 10000000"
+                                        />
+                                        {isInvalid && <FieldError errors={f.state.meta.errors} />}
+                                    </Field>
+                                )
+                            }}
+                        </form.Field>
+                    </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <form.Field name="settings.vgaGainDb">

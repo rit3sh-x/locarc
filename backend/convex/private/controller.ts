@@ -19,6 +19,9 @@ export const create = mutation({
         username: v.string(),
         password: v.string(),
         settings: v.object({
+            minFrequencyHz: v.number(),
+            maxFrequencyHz: v.number(),
+            sampleRateHz: v.number(),
             lnaGainDb: v.number(),
             vgaGainDb: v.number(),
             bufferSizeKb: v.number(),
@@ -61,6 +64,21 @@ export const create = mutation({
             throw new ConvexError({
                 code: "BAD_REQUEST",
                 message: "lnaGainDb must be between 0 and 40",
+            });
+        if (settings.sampleRateHz <= 0)
+            throw new ConvexError({
+                code: "BAD_REQUEST",
+                message: "sampleRateHz must be positive",
+            });
+        if (settings.minFrequencyHz <= 0 || settings.maxFrequencyHz <= 0)
+            throw new ConvexError({
+                code: "BAD_REQUEST",
+                message: "frequency bounds must be positive",
+            });
+        if (settings.minFrequencyHz >= settings.maxFrequencyHz)
+            throw new ConvexError({
+                code: "BAD_REQUEST",
+                message: "minFrequencyHz must be less than maxFrequencyHz",
             });
 
         const user: Doc<"user"> = await ctx.runMutation(
@@ -111,6 +129,9 @@ export const create = mutation({
             userId: user._id,
             latitudeE6: DEFAULT_CONTROLLER_LATITUDE * LOCATION_MULTIPLIER,
             longitudeE6: DEFAULT_CONTROLLER_LONGITUDE * LOCATION_MULTIPLIER,
+            minFrequencyHz: settings.minFrequencyHz,
+            maxFrequencyHz: settings.maxFrequencyHz,
+            sampleRateHz: settings.sampleRateHz,
             lnaGainDb: settings.lnaGainDb,
             vgaGainDb: settings.vgaGainDb,
             bufferSizeKb: settings.bufferSizeKb,
@@ -131,6 +152,9 @@ export const update = mutation({
         username: v.optional(v.string()),
         settings: v.optional(
             v.object({
+                minFrequencyHz: v.optional(v.number()),
+                maxFrequencyHz: v.optional(v.number()),
+                sampleRateHz: v.optional(v.number()),
                 lnaGainDb: v.optional(v.number()),
                 vgaGainDb: v.optional(v.number()),
                 bufferSizeKb: v.optional(v.number()),
@@ -186,6 +210,39 @@ export const update = mutation({
             throw new ConvexError({
                 code: "BAD_REQUEST",
                 message: "lnaGainDb must be between 0 and 40",
+            });
+        if (
+            settings?.sampleRateHz !== undefined &&
+            settings.sampleRateHz <= 0
+        )
+            throw new ConvexError({
+                code: "BAD_REQUEST",
+                message: "sampleRateHz must be positive",
+            });
+        if (
+            settings?.minFrequencyHz !== undefined &&
+            settings.minFrequencyHz <= 0
+        )
+            throw new ConvexError({
+                code: "BAD_REQUEST",
+                message: "minFrequencyHz must be positive",
+            });
+        if (
+            settings?.maxFrequencyHz !== undefined &&
+            settings.maxFrequencyHz <= 0
+        )
+            throw new ConvexError({
+                code: "BAD_REQUEST",
+                message: "maxFrequencyHz must be positive",
+            });
+        if (
+            settings?.minFrequencyHz !== undefined &&
+            settings?.maxFrequencyHz !== undefined &&
+            settings.minFrequencyHz >= settings.maxFrequencyHz
+        )
+            throw new ConvexError({
+                code: "BAD_REQUEST",
+                message: "minFrequencyHz must be less than maxFrequencyHz",
             });
 
         const controller = await ctx.db.get(controllerId);
@@ -393,6 +450,9 @@ export const getMany = query({
                     latitude: controller.latitudeE6 / LOCATION_MULTIPLIER,
                     longitude: controller.longitudeE6 / LOCATION_MULTIPLIER,
                     settings: {
+                        minFrequencyHz: controller.minFrequencyHz,
+                        maxFrequencyHz: controller.maxFrequencyHz,
+                        sampleRateHz: controller.sampleRateHz,
                         lnaGainDb: controller.lnaGainDb,
                         vgaGainDb: controller.vgaGainDb,
                         bufferSizeKb: controller.bufferSizeKb,

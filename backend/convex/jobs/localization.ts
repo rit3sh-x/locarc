@@ -415,20 +415,10 @@ export const createBatchForAdmin = internalMutation({
         adminId: v.string(),
         controllerIds: v.array(v.id("controller")),
         controllerUserIds: v.array(v.string()),
-        minFrequencyHz: v.number(),
-        maxFrequencyHz: v.number(),
-        sampleRateHz: v.number(),
     },
     handler: async (
         ctx,
-        {
-            adminId,
-            controllerIds,
-            controllerUserIds,
-            minFrequencyHz,
-            maxFrequencyHz,
-            sampleRateHz,
-        }
+        { adminId, controllerIds, controllerUserIds }
     ) => {
         const now = Date.now();
         const scanId = nanoid(SCAN_ID_LENGTH);
@@ -438,9 +428,6 @@ export const createBatchForAdmin = internalMutation({
             scanId,
             status: "PENDING",
             batchStartedAt: now,
-            minFrequencyHz,
-            maxFrequencyHz,
-            sampleRateHz,
             expectedControllerCount: controllerIds.length,
             receivedControllerCount: 0,
         });
@@ -456,38 +443,6 @@ export const createBatchForAdmin = internalMutation({
         }
 
         return batchId;
-    },
-});
-
-const DEFAULT_BATCH_SAMPLE_RATE_HZ = 10_000_000;
-
-export const getScanParamsForAdmin = internalQuery({
-    args: { adminId: v.string() },
-    handler: async (ctx, { adminId }) => {
-        const admin: Doc<"user"> | null = await ctx.runQuery(
-            components.betterAuth.adapter.findOne,
-            {
-                model: "user",
-                where: [{ field: "_id", value: adminId, operator: "eq" }],
-            }
-        );
-
-        if (!admin?.organizationSlug) return null;
-
-        const settings = await ctx.db
-            .query("settings")
-            .withIndex("by_org_slug", (q) =>
-                q.eq("orgSlug", admin.organizationSlug)
-            )
-            .unique();
-
-        if (!settings) return null;
-
-        return {
-            minFrequencyHz: settings.channelMapping.bandStartFreqHz,
-            maxFrequencyHz: settings.channelMapping.bandEndFreqHz,
-            sampleRateHz: DEFAULT_BATCH_SAMPLE_RATE_HZ,
-        };
     },
 });
 
@@ -513,18 +468,6 @@ export const createBatchesForActiveAdmins = internalAction({
                 continue;
             }
 
-            const scanParams = await ctx.runQuery(
-                internal.jobs.localization.getScanParamsForAdmin,
-                { adminId }
-            );
-
-            if (!scanParams) {
-                console.log(
-                    `Admin ${adminId}: no org settings, skipping batch`
-                );
-                continue;
-            }
-
             try {
                 await ctx.runMutation(
                     internal.jobs.localization.createBatchForAdmin,
@@ -532,9 +475,6 @@ export const createBatchesForActiveAdmins = internalAction({
                         adminId,
                         controllerIds: controllers.map((c) => c._id),
                         controllerUserIds: controllers.map((c) => c.userId),
-                        minFrequencyHz: scanParams.minFrequencyHz,
-                        maxFrequencyHz: scanParams.maxFrequencyHz,
-                        sampleRateHz: scanParams.sampleRateHz,
                     }
                 );
                 created++;

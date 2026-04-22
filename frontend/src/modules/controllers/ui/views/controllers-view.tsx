@@ -62,6 +62,9 @@ export const ControllerView = (): React.JSX.Element => {
             username: '',
             password: '',
             settings: {
+                minFrequencyHz: controller.settings.minFrequencyHz,
+                maxFrequencyHz: controller.settings.maxFrequencyHz,
+                sampleRateHz: controller.settings.sampleRateHz,
                 lnaGainDb: controller.settings.lnaGainDb,
                 vgaGainDb: controller.settings.vgaGainDb,
                 bufferSizeKb: controller.settings.bufferSizeKb,
