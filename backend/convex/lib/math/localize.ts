@@ -144,7 +144,7 @@ export function runLocalization(
     const byChannel = groupByChannel(payload, toleranceHz, maxSpanHz);
 
     console.log(
-        `localize batch=${payload.batchId} channels=${byChannel.size} controllers=${ctrlMap.size}`
+        `localize batch=${payload.batchId} channels=${byChannel.size} controllers=${ctrlMap.size} algo=${algo}`
     );
 
     const results: LocationResult[] = [];
@@ -181,7 +181,30 @@ export function runLocalization(
                 refLat,
                 refLon
             );
-            const corners = boundsToCorners(bounds, refLat, refLon);
+
+            if (
+                !Number.isFinite(centerLat) ||
+                !Number.isFinite(centerLon) ||
+                centerLat < -90 ||
+                centerLat > 90 ||
+                centerLon < -180 ||
+                centerLon > 180
+            ) {
+                console.warn(
+                    `localize batch=${payload.batchId} ch=${(channelHz / 1e6).toFixed(4)} MHz produced invalid GPS (${centerLat}, ${centerLon}) — dropping. est=(${est[0]}, ${est[1]}) ref=(${refLat}, ${refLon})`
+                );
+                continue;
+            }
+
+            const corners = boundsToCorners(bounds, refLat, refLon).filter(
+                (c) =>
+                    Number.isFinite(c.latitude) &&
+                    Number.isFinite(c.longitude) &&
+                    c.latitude >= -90 &&
+                    c.latitude <= 90 &&
+                    c.longitude >= -180 &&
+                    c.longitude <= 180
+            );
 
             console.log(
                 `localize batch=${payload.batchId} ch=${(channelHz / 1e6).toFixed(4)} MHz rx=${ctrlIds.length} → (${centerLat.toFixed(6)}, ${centerLon.toFixed(6)})`

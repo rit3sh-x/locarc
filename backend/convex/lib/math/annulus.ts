@@ -69,12 +69,14 @@ export function initialBounds(receivers: Vec2[]): Bounds2 {
     ];
 }
 
+const MAX_PLAUSIBLE_RANGE_M = 500_000;
+
 export function annulusBounds(
     receivers: Vec2[],
     powers: number[],
     cfg: LocalizationConfig
 ): Bounds2 | null {
-    const n = cfg.pathLossExponent;
+    const n = Math.max(cfg.pathLossExponent, 1.5);
     let x0 = -Infinity,
         x1 = Infinity,
         y0 = -Infinity,
@@ -82,7 +84,10 @@ export function annulusBounds(
 
     for (let i = 0; i < receivers.length; i++) {
         const [rx, ry] = receivers[i];
-        const dMax = Math.pow(10, (cfg.ptMaxDbm - powers[i]) / (10 * n));
+        let dMax = Math.pow(10, (cfg.ptMaxDbm - powers[i]) / (10 * n));
+        if (!Number.isFinite(dMax) || dMax > MAX_PLAUSIBLE_RANGE_M) {
+            dMax = MAX_PLAUSIBLE_RANGE_M;
+        }
         if (rx - dMax > x0) x0 = rx - dMax;
         if (rx + dMax < x1) x1 = rx + dMax;
         if (ry - dMax > y0) y0 = ry - dMax;

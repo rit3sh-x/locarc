@@ -181,6 +181,34 @@ export const update = mutation({
             throw new ConvexError("Settings not found for this organization.");
         }
 
+        if (args.localization?.pathLossExponent !== undefined) {
+            const n = args.localization.pathLossExponent;
+            if (!Number.isFinite(n) || n < 1.5 || n > 6) {
+                throw new ConvexError({
+                    code: "INVALID_INPUT",
+                    message: `pathLossExponent must be in [1.5, 6]; got ${n}. Typical: free-space=2, urban=3.5.`,
+                });
+            }
+        }
+        if (args.localization?.channelToleranceHz !== undefined) {
+            const t = args.localization.channelToleranceHz;
+            if (!Number.isFinite(t) || t < 0 || t > 10_000_000) {
+                throw new ConvexError({
+                    code: "INVALID_INPUT",
+                    message: `channelToleranceHz must be in [0, 10MHz]; got ${t}.`,
+                });
+            }
+        }
+        if (args.localization?.channelMaxSpanHz !== undefined) {
+            const s = args.localization.channelMaxSpanHz;
+            if (!Number.isFinite(s) || s < 0 || s > 50_000_000) {
+                throw new ConvexError({
+                    code: "INVALID_INPUT",
+                    message: `channelMaxSpanHz must be in [0, 50MHz]; got ${s}.`,
+                });
+            }
+        }
+
         await ctx.db.patch(settings._id, {
             ...(args.phase1 && {
                 phase1: { ...settings.phase1, ...args.phase1 },

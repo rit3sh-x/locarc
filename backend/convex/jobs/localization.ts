@@ -229,7 +229,26 @@ export const storeLocationResults = internalMutation({
             }
         }
 
+        const isValidLat = (v: number) =>
+            Number.isFinite(v) && v >= -90 && v <= 90;
+        const isValidLon = (v: number) =>
+            Number.isFinite(v) && v >= -180 && v <= 180;
+
+        let rejected = 0;
         for (const loc of args.locations) {
+            if (
+                !isValidLat(loc.centerLatitude) ||
+                !isValidLon(loc.centerLongitude)
+            ) {
+                rejected++;
+                console.warn(
+                    `storeLocationResults: rejected invalid GPS (${loc.centerLatitude}, ${loc.centerLongitude}) for batch ${args.batchId}`
+                );
+                continue;
+            }
+            const validBounds = loc.bounds.filter(
+                (b) => isValidLat(b.latitude) && isValidLon(b.longitude)
+            );
             await ctx.db.insert("location", {
                 jobBatchId: args.batchId,
                 adminId: batch.adminId,
@@ -240,7 +259,7 @@ export const storeLocationResults = internalMutation({
                 centerLatitudeE6: Math.round(
                     loc.centerLatitude * LOCATION_MULTIPLIER
                 ),
-                bounds: loc.bounds.map((b) => ({
+                bounds: validBounds.map((b) => ({
                     longitudeE6: Math.round(b.longitude * LOCATION_MULTIPLIER),
                     latitudeE6: Math.round(b.latitude * LOCATION_MULTIPLIER),
                 })),
@@ -248,6 +267,11 @@ export const storeLocationResults = internalMutation({
                 controllerCount: loc.controllerCount,
                 isStale: false,
             });
+        }
+        if (rejected > 0) {
+            console.warn(
+                `storeLocationResults batch=${args.batchId}: rejected ${rejected} invalid location(s)`
+            );
         }
 
         await ctx.db.patch(args.batchId, {
