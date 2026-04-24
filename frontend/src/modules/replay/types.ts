@@ -3,7 +3,9 @@ import type { api } from '@backend/api'
 
 export type ReplayResult = NonNullable<FunctionReturnType<typeof api.private.localization.replay>>
 
-export type ReplayLocation = ReplayResult['locations'][number]
+export type ReplayFrame = ReplayResult['frames'][number]
+
+export type ReplayFrameLocation = ReplayFrame['locations'][number]
 
 export type ReplayController = ReplayResult['controllers'][number]
 

@@ -1,5 +1,3 @@
 export const REPLAY_WINDOW_DAYS = 7
-export const REPLAY_TRAIL_MS = 5 * 60 * 1000
-export const REPLAY_TICK_MS = 200
-export const REPLAY_DEFAULT_SPEED = 60
-export const REPLAY_SPEEDS = [1, 5, 15, 60, 300, 900] as const
+export const REPLAY_FRAME_DURATIONS_MS = [2000, 1000, 500, 250, 100] as const
+export const REPLAY_DEFAULT_FRAME_MS = 1000

@@ -210,12 +210,23 @@ export const storeLocationResults = internalMutation({
 
         const now = Date.now();
 
-        const oldLocations = await ctx.db
+        const sameBatchLocations = await ctx.db
             .query("location")
             .withIndex("by_job_batch_id", (q) => q.eq("jobBatchId", args.batchId))
             .collect();
-        for (const old of oldLocations) {
+        for (const old of sameBatchLocations) {
             await ctx.db.delete(old._id);
+        }
+
+        const priorFresh = await ctx.db
+            .query("location")
+            .withIndex("by_admin_id", (q) => q.eq("adminId", batch.adminId))
+            .filter((q) => q.neq(q.field("isStale"), true))
+            .collect();
+        for (const p of priorFresh) {
+            if (p.jobBatchId !== args.batchId) {
+                await ctx.db.patch(p._id, { isStale: true });
+            }
         }
 
         for (const loc of args.locations) {
@@ -235,6 +246,7 @@ export const storeLocationResults = internalMutation({
                 })),
                 frequencyHz: loc.frequencyHz,
                 controllerCount: loc.controllerCount,
+                isStale: false,
             });
         }
 

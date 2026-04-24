@@ -121,22 +121,28 @@ export const stream = query({
     },
 });
 
-type ReplayResult = {
-    locations: {
-        id: Id<"location">;
-        createdAt: number;
-        center: {
-            longitude: number;
-            latitude: number;
-        };
-        bounds: {
-            longitude: number;
-            latitude: number;
-        }[];
-        frequencyHz?: number;
-        controllerCount?: number;
-        isStale: boolean;
+type ReplayFrameLocation = {
+    id: Id<"location">;
+    center: {
+        longitude: number;
+        latitude: number;
+    };
+    bounds: {
+        longitude: number;
+        latitude: number;
     }[];
+    frequencyHz?: number;
+    controllerCount?: number;
+};
+
+type ReplayFrame = {
+    batchId: Id<"jobBatch">;
+    timestampMs: number;
+    locations: ReplayFrameLocation[];
+};
+
+type ReplayResult = {
+    frames: ReplayFrame[];
     controllers: {
         id: Id<"controller">;
         coordinate: {
@@ -157,7 +163,7 @@ export const replay = query({
         });
 
         if (endMs < startMs) {
-            return { locations: [], controllers: [] };
+            return { frames: [], controllers: [] };
         }
 
         const controllers = await ctx.db
@@ -188,24 +194,38 @@ export const replay = query({
             )
             .collect();
 
-        locations.sort((a, b) => a._creationTime - b._creationTime);
+        const grouped = new Map<Id<"jobBatch">, typeof locations>();
+        for (const loc of locations) {
+            const arr = grouped.get(loc.jobBatchId);
+            if (arr) arr.push(loc);
+            else grouped.set(loc.jobBatchId, [loc]);
+        }
+
+        const frames: ReplayFrame[] = [];
+        for (const [batchId, rows] of grouped) {
+            const timestampMs = Math.min(...rows.map((r) => r._creationTime));
+            frames.push({
+                batchId,
+                timestampMs,
+                locations: rows.map((location) => ({
+                    id: location._id,
+                    center: {
+                        longitude: location.centerLongitudeE6 / LOCATION_MULTIPLIER,
+                        latitude: location.centerLatitudeE6 / LOCATION_MULTIPLIER,
+                    },
+                    bounds: location.bounds.map((bound) => ({
+                        longitude: bound.longitudeE6 / LOCATION_MULTIPLIER,
+                        latitude: bound.latitudeE6 / LOCATION_MULTIPLIER,
+                    })),
+                    frequencyHz: location.frequencyHz,
+                    controllerCount: location.controllerCount,
+                })),
+            });
+        }
+        frames.sort((a, b) => a.timestampMs - b.timestampMs);
 
         return {
-            locations: locations.map((location) => ({
-                id: location._id,
-                createdAt: location._creationTime,
-                center: {
-                    longitude: location.centerLongitudeE6 / LOCATION_MULTIPLIER,
-                    latitude: location.centerLatitudeE6 / LOCATION_MULTIPLIER,
-                },
-                bounds: location.bounds.map((bound) => ({
-                    longitude: bound.longitudeE6 / LOCATION_MULTIPLIER,
-                    latitude: bound.latitudeE6 / LOCATION_MULTIPLIER,
-                })),
-                frequencyHz: location.frequencyHz,
-                controllerCount: location.controllerCount,
-                isStale: location.isStale === true,
-            })),
+            frames,
             controllers: controllers.map((controller) => ({
                 id: controller._id,
                 coordinate: {

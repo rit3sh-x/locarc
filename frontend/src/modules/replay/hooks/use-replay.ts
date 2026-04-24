@@ -1,8 +1,8 @@
 import { api } from '@backend/api'
 import { useQuery } from 'convex-helpers/react/cache'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { REPLAY_DEFAULT_SPEED, REPLAY_TICK_MS, REPLAY_TRAIL_MS } from '../constants'
-import type { ReplayLocation, ReplayResult } from '../types'
+import { useEffect, useRef, useState } from 'react'
+import { REPLAY_DEFAULT_FRAME_MS } from '../constants'
+import type { ReplayResult } from '../types'
 
 interface UseReplayArgs {
     startMs: number | null
@@ -20,82 +20,62 @@ export const useReplayData = ({ startMs, endMs }: UseReplayArgs) => {
 }
 
 interface UsePlaybackArgs {
-    startMs: number | null
-    endMs: number | null
-    locations: ReplayLocation[]
+    frameCount: number
 }
 
-export const usePlayback = ({ startMs, endMs, locations }: UsePlaybackArgs) => {
-    const [currentMs, setCurrentMs] = useState<number>(startMs ?? 0)
+export const usePlayback = ({ frameCount }: UsePlaybackArgs) => {
+    const [frameIdx, setFrameIdx] = useState(0)
     const [playing, setPlaying] = useState(false)
-    const [speed, setSpeed] = useState<number>(REPLAY_DEFAULT_SPEED)
-    const rafRef = useRef<number | null>(null)
-    const lastTsRef = useRef<number | null>(null)
+    const [frameMs, setFrameMs] = useState<number>(REPLAY_DEFAULT_FRAME_MS)
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
     useEffect(() => {
-        if (startMs != null) setCurrentMs(startMs)
+        setFrameIdx(0)
         setPlaying(false)
-        lastTsRef.current = null
-    }, [startMs, endMs])
+    }, [frameCount])
 
     useEffect(() => {
-        if (!playing || startMs == null || endMs == null) {
-            if (rafRef.current) cancelAnimationFrame(rafRef.current)
-            rafRef.current = null
-            lastTsRef.current = null
+        if (!playing || frameCount === 0) {
+            if (intervalRef.current) clearInterval(intervalRef.current)
+            intervalRef.current = null
             return
         }
 
-        const tick = (ts: number) => {
-            if (lastTsRef.current == null) lastTsRef.current = ts
-            const dt = ts - lastTsRef.current
-            if (dt >= REPLAY_TICK_MS) {
-                lastTsRef.current = ts
-                setCurrentMs((prev) => {
-                    const next = prev + dt * speed
-                    if (next >= endMs) {
-                        setPlaying(false)
-                        return endMs
-                    }
-                    return next
-                })
-            }
-            rafRef.current = requestAnimationFrame(tick)
-        }
-        rafRef.current = requestAnimationFrame(tick)
+        intervalRef.current = setInterval(() => {
+            setFrameIdx((prev) => {
+                const next = prev + 1
+                if (next >= frameCount) {
+                    setPlaying(false)
+                    return frameCount - 1
+                }
+                return next
+            })
+        }, frameMs)
 
         return () => {
-            if (rafRef.current) cancelAnimationFrame(rafRef.current)
-            rafRef.current = null
-            lastTsRef.current = null
+            if (intervalRef.current) clearInterval(intervalRef.current)
+            intervalRef.current = null
         }
-    }, [playing, speed, startMs, endMs])
+    }, [playing, frameMs, frameCount])
 
-    const visibleLocations = useMemo(() => {
-        const trailStart = currentMs - REPLAY_TRAIL_MS
-        return locations.filter((l) => l.createdAt >= trailStart && l.createdAt <= currentMs)
-    }, [locations, currentMs])
-
-    const seekTo = (ms: number) => {
-        if (startMs == null || endMs == null) return
-        const clamped = Math.max(startMs, Math.min(endMs, ms))
-        setCurrentMs(clamped)
-        lastTsRef.current = null
+    const seekTo = (idx: number) => {
+        if (frameCount === 0) return
+        const clamped = Math.max(0, Math.min(frameCount - 1, idx))
+        setFrameIdx(clamped)
     }
 
     const togglePlay = () => {
-        if (startMs == null || endMs == null) return
-        if (!playing && currentMs >= endMs) setCurrentMs(startMs)
+        if (frameCount === 0) return
+        if (!playing && frameIdx >= frameCount - 1) setFrameIdx(0)
         setPlaying((p) => !p)
     }
 
     return {
-        currentMs,
+        frameIdx,
         playing,
-        speed,
-        setSpeed,
+        frameMs,
+        setFrameMs,
         seekTo,
         togglePlay,
-        visibleLocations,
     }
 }

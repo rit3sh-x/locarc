@@ -4,8 +4,7 @@ import L from 'leaflet'
 import { TileController } from '@/modules/map/ui/components/tile-controller'
 import { controllerIcon, locationIcon } from '@/modules/map/ui/components/leaflet-icons'
 import { useMapCursor } from '@/modules/map/context/map'
-import { REPLAY_TRAIL_MS } from '../../constants'
-import type { ReplayController, ReplayLocation } from '../../types'
+import type { ReplayController, ReplayFrameLocation } from '../../types'
 
 function MapCursorTracker() {
     const { setPos } = useMapCursor()
@@ -48,40 +47,29 @@ function MapInit() {
     return null
 }
 
-function computeOpacity(age: number): number {
-    if (age <= 0) return 1
-    const ratio = 1 - age / REPLAY_TRAIL_MS
-    return Math.max(0.15, Math.min(1, ratio))
-}
-
-function ReplayMarkers({ points, currentMs }: { points: ReplayLocation[]; currentMs: number }) {
+function FrameMarkers({ points }: { points: ReplayFrameLocation[] }) {
     return (
         <>
-            {points.map((p) => {
-                const age = currentMs - p.createdAt
-                const opacity = computeOpacity(age)
-                return (
-                    <Fragment key={p.id}>
-                        <Marker
-                            position={[p.center.latitude, p.center.longitude]}
-                            icon={locationIcon}
-                            opacity={opacity}
+            {points.map((p) => (
+                <Fragment key={p.id}>
+                    <Marker
+                        position={[p.center.latitude, p.center.longitude]}
+                        icon={locationIcon}
+                    />
+                    {p.bounds.length > 2 && (
+                        <Polygon
+                            positions={p.bounds.map((b) => [b.latitude, b.longitude])}
+                            pathOptions={{
+                                weight: 1,
+                                opacity: 0.9,
+                                fillOpacity: 0.2,
+                                color: '#3b82f6',
+                                fillColor: '#3b82f6',
+                            }}
                         />
-                        {p.bounds.length > 2 && (
-                            <Polygon
-                                positions={p.bounds.map((b) => [b.latitude, b.longitude])}
-                                pathOptions={{
-                                    weight: 1,
-                                    opacity: opacity * 0.9,
-                                    fillOpacity: opacity * 0.2,
-                                    color: '#3b82f6',
-                                    fillColor: '#3b82f6',
-                                }}
-                            />
-                        )}
-                    </Fragment>
-                )
-            })}
+                    )}
+                </Fragment>
+            ))}
         </>
     )
 }
@@ -101,16 +89,11 @@ function ControllerMarkers({ points }: { points: ReplayController[] }) {
 }
 
 interface ReplayMapProps {
-    visibleLocations: ReplayLocation[]
+    locations: ReplayFrameLocation[]
     controllers: ReplayController[]
-    currentMs: number
 }
 
-export const ReplayMap = ({
-    visibleLocations,
-    controllers,
-    currentMs,
-}: ReplayMapProps): React.JSX.Element => {
+export const ReplayMap = ({ locations, controllers }: ReplayMapProps): React.JSX.Element => {
     return (
         <MapContainer
             className="w-full h-full overflow-hidden"
@@ -126,7 +109,7 @@ export const ReplayMap = ({
             <MapInit />
             <TileController />
             <MapCursorTracker />
-            <ReplayMarkers points={visibleLocations} currentMs={currentMs} />
+            <FrameMarkers points={locations} />
             <ControllerMarkers points={controllers} />
         </MapContainer>
     )

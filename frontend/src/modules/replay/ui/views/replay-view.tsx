@@ -1,5 +1,6 @@
 import { Loader2Icon } from 'lucide-react'
 import { Suspense, lazy, useMemo, useState } from 'react'
+import { set } from 'date-fns'
 import { MapCursorProvider, useMapCursor } from '@/modules/map/context/map'
 import { DateRangePicker } from '../components/date-range-picker'
 import { TimeRangePicker } from '../components/time-range-picker'
@@ -21,16 +22,8 @@ const ReplayMapCursorPosition = (): React.JSX.Element => {
     )
 }
 
-const combine = (d: Date, hour: number, minute: number): number => {
-    const out = new Date(d)
-    out.setHours(hour, minute, 0, 0)
-    return out.getTime()
-}
-
-const hasReplayWindow = (value: {
-    startMs: number | null
-    endMs: number | null
-}): value is { startMs: number; endMs: number } => value.startMs != null && value.endMs != null
+const combine = (d: Date, hour: number, minute: number): number =>
+    set(d, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 }).getTime()
 
 export const ReplayView = (): React.JSX.Element => {
     const [range, setRange] = useState<DateRange>({
@@ -52,24 +45,25 @@ export const ReplayView = (): React.JSX.Element => {
     }, [range.from, range.to, startHour, startMinute, endHour, endMinute])
 
     const { data, isLoading } = useReplayData({ startMs, endMs })
-
-    const locations = data?.locations ?? []
+    const frames = data?.frames ?? []
     const controllers = data?.controllers ?? []
 
-    const { currentMs, playing, speed, setSpeed, seekTo, togglePlay, visibleLocations } =
-        usePlayback({ startMs, endMs, locations })
-    const replayWindow = { startMs, endMs }
+    const { frameIdx, playing, frameMs, setFrameMs, seekTo, togglePlay } = usePlayback({
+        frameCount: frames.length,
+    })
+
+    const hasCurrentFrame = frameIdx >= 0 && frameIdx < frames.length
+    const currentFrame = hasCurrentFrame ? frames[frameIdx] : null
+    const currentLocations = currentFrame ? currentFrame.locations : []
+    const currentTimestamp = currentFrame ? currentFrame.timestampMs : null
+    const rangeReady = startMs != null
 
     return (
         <MapCursorProvider>
             <div className="relative h-[calc(100vh-4rem)] w-full overflow-hidden">
                 <div className="z-10 relative w-full h-full">
                     <Suspense fallback={<ReplayMapSkeleton />}>
-                        <ReplayMap
-                            visibleLocations={visibleLocations}
-                            controllers={controllers}
-                            currentMs={currentMs}
-                        />
+                        <ReplayMap locations={currentLocations} controllers={controllers} />
                     </Suspense>
                 </div>
 
@@ -91,24 +85,27 @@ export const ReplayView = (): React.JSX.Element => {
                     </div>
 
                     <div className="w-full max-w-4xl">
-                        {hasReplayWindow(replayWindow) ? (
+                        {rangeReady ? (
                             isLoading ? (
                                 <div className="pointer-events-auto bg-popover/95 backdrop-blur border rounded-md shadow-lg px-3 py-2 text-xs flex items-center gap-2">
                                     <Loader2Icon className="size-4 animate-spin" />
-                                    Loading locations…
+                                    Loading batches…
+                                </div>
+                            ) : frames.length === 0 ? (
+                                <div className="pointer-events-auto bg-popover/95 backdrop-blur border rounded-md shadow-lg px-3 py-2 text-xs text-muted-foreground">
+                                    No batches in this range.
                                 </div>
                             ) : (
                                 <ReplayControls
-                                    startMs={replayWindow.startMs}
-                                    endMs={replayWindow.endMs}
-                                    currentMs={currentMs}
+                                    frameCount={frames.length}
+                                    frameIdx={frameIdx}
+                                    frameTimestampMs={currentTimestamp}
+                                    frameLocationCount={currentLocations.length}
                                     playing={playing}
-                                    speed={speed}
+                                    frameMs={frameMs}
                                     onTogglePlay={togglePlay}
                                     onSeek={seekTo}
-                                    onSetSpeed={setSpeed}
-                                    visibleCount={visibleLocations.length}
-                                    totalCount={locations.length}
+                                    onSetFrameMs={setFrameMs}
                                 />
                             )
                         ) : (
