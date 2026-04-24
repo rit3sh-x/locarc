@@ -46,7 +46,7 @@ function SettingsContent() {
 }
 
 export const SettingsView = () => (
-    <div className="flex flex-col w-full h-full max-w-3xl gap-4 py-4 md:gap-6 md:py-6 px-4 lg:px-6 overflow-y-auto">
+    <div className="flex flex-col w-full max-w-3xl gap-4 py-4 md:gap-6 md:py-6 px-4 lg:px-6 mx-auto">
         <div className="space-y-1">
             <h2 className="text-lg font-semibold tracking-tight">Algorithm Settings</h2>
             <p className="text-sm text-muted-foreground">

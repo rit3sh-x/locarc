@@ -18,7 +18,7 @@ export const SdrView = (): React.JSX.Element => {
     }
 
     return (
-        <div className="flex flex-col w-full h-full max-w-7xl gap-4 p-4 md:p-6 mx-auto">
+        <div className="flex flex-col w-full max-w-7xl gap-4 p-4 md:p-6 mx-auto">
             <div className="flex items-center justify-between gap-2">
                 <div>
                     <h1 className="text-xl font-semibold">SDR Readings</h1>

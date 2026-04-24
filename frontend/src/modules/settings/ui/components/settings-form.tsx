@@ -146,7 +146,8 @@ export const SettingsForm = ({
         ptSearchRangeMaxDbm = 43.0,
         ptSearchStepDbm = 0.5,
         powerErrorRangeDb = 3.0,
-        channelBinHz = 12_500,
+        channelToleranceHz = 150_000,
+        channelMaxSpanHz = 400_000,
         minControllersPerChannel = 3,
         minPeakDbm = -110,
     } = localization
@@ -191,7 +192,8 @@ export const SettingsForm = ({
             'localization.ptSearchRangeMaxDbm': ptSearchRangeMaxDbm,
             'localization.ptSearchStepDbm': ptSearchStepDbm,
             'localization.powerErrorRangeDb': powerErrorRangeDb,
-            'localization.channelBinHz': channelBinHz,
+            'localization.channelToleranceHz': channelToleranceHz,
+            'localization.channelMaxSpanHz': channelMaxSpanHz,
             'localization.minControllersPerChannel': minControllersPerChannel,
             'localization.minPeakDbm': minPeakDbm,
         },
@@ -235,7 +237,8 @@ export const SettingsForm = ({
                     ptSearchRangeMaxDbm: value['localization.ptSearchRangeMaxDbm'],
                     ptSearchStepDbm: value['localization.ptSearchStepDbm'],
                     powerErrorRangeDb: value['localization.powerErrorRangeDb'],
-                    channelBinHz: value['localization.channelBinHz'],
+                    channelToleranceHz: value['localization.channelToleranceHz'],
+                    channelMaxSpanHz: value['localization.channelMaxSpanHz'],
                     minControllersPerChannel: value['localization.minControllersPerChannel'],
                     minPeakDbm: value['localization.minPeakDbm'],
                 },
@@ -473,7 +476,7 @@ export const SettingsForm = ({
                     value="localization"
                     title="Localization"
                     description="Transmitter position estimation from multi-controller power readings"
-                    fieldCount={9}
+                    fieldCount={10}
                 >
                     <form.Field name="localization.algorithm">
                         {(field) => (
@@ -533,13 +536,23 @@ export const SettingsForm = ({
                             />
                         )}
                     </form.Field>
-                    <form.Field name="localization.channelBinHz">
+                    <form.Field name="localization.channelToleranceHz">
                         {(field) => (
                             <NumericField
                                 field={field}
-                                label="Channel Bin"
+                                label="Channel Tolerance"
                                 unit="Hz"
-                                description="Grid used to group measurements by frequency"
+                                description="Max gap between neighboring freqs to cluster as same channel"
+                            />
+                        )}
+                    </form.Field>
+                    <form.Field name="localization.channelMaxSpanHz">
+                        {(field) => (
+                            <NumericField
+                                field={field}
+                                label="Channel Max Span"
+                                unit="Hz"
+                                description="Reject clusters wider than this (guards against chain runaway)"
                             />
                         )}
                     </form.Field>

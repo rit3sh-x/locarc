@@ -21,7 +21,8 @@ export interface LocalizationPayloadConfig {
     ptSearchRangeMaxDbm: number;
     ptSearchStepDbm: number;
     powerErrorRangeDb: number;
-    channelBinHz?: number;
+    channelToleranceHz?: number;
+    channelMaxSpanHz?: number;
     minControllersPerChannel?: number;
     minPeakDbm?: number;
 }
@@ -58,46 +59,56 @@ export interface LocationResult {
     controllerCount?: number;
 }
 
-const DEFAULT_CHANNEL_BIN_HZ = 12_500;
+const DEFAULT_CHANNEL_TOLERANCE_HZ = 150_000;
+const DEFAULT_CHANNEL_MAX_SPAN_HZ = 400_000;
 const DEFAULT_MIN_CONTROLLERS = 3;
 const DEFAULT_MIN_PEAK_DBM = -110;
 
-function peakPowerDbm(samples: LocalizationInputSample[]): number {
-    let best = -Infinity;
-    for (const s of samples) if (s.powerDbm > best) best = s.powerDbm;
-    return best;
-}
-
 function groupByChannel(
     payload: LocalizationInput,
-    binHz: number
+    toleranceHz: number,
+    maxSpanHz: number
 ): Map<number, Map<string, number>> {
     const ctrlIds = new Set(payload.controllers.map((c) => c.controllerId));
-    const buckets = new Map<number, Map<string, LocalizationInputSample[]>>();
-
+    type Obs = { controllerId: string; freq: number; power: number };
+    const obs: Obs[] = [];
     for (const m of payload.measurements) {
         if (!ctrlIds.has(m.controllerId)) continue;
         for (const s of m.samples) {
-            const ch = Math.round(s.frequencyHz / binHz) * binHz;
-            let row = buckets.get(ch);
-            if (!row) {
-                row = new Map();
-                buckets.set(ch, row);
-            }
-            let arr = row.get(m.controllerId);
-            if (!arr) {
-                arr = [];
-                row.set(m.controllerId, arr);
-            }
-            arr.push(s);
+            obs.push({
+                controllerId: m.controllerId,
+                freq: s.frequencyHz,
+                power: s.powerDbm,
+            });
         }
     }
+    if (obs.length === 0) return new Map();
+    obs.sort((a, b) => a.freq - b.freq);
+
+    const clusters: Obs[][] = [];
+    let current: Obs[] = [obs[0]];
+    for (let i = 1; i < obs.length; i++) {
+        const gap = obs[i].freq - obs[i - 1].freq;
+        if (gap <= toleranceHz) current.push(obs[i]);
+        else {
+            clusters.push(current);
+            current = [obs[i]];
+        }
+    }
+    clusters.push(current);
 
     const out = new Map<number, Map<string, number>>();
-    for (const [ch, row] of buckets) {
-        const red = new Map<string, number>();
-        for (const [cid, list] of row) red.set(cid, peakPowerDbm(list));
-        out.set(ch, red);
+    for (const cluster of clusters) {
+        const span = cluster[cluster.length - 1].freq - cluster[0].freq;
+        if (span > maxSpanHz) continue;
+        const centerHz =
+            cluster.reduce((s, o) => s + o.freq, 0) / cluster.length;
+        const byCtrl = new Map<string, number>();
+        for (const o of cluster) {
+            const prev = byCtrl.get(o.controllerId) ?? -Infinity;
+            if (o.power > prev) byCtrl.set(o.controllerId, o.power);
+        }
+        out.set(centerHz, byCtrl);
     }
     return out;
 }
@@ -120,7 +131,9 @@ export function runLocalization(
         ptStepDbm: locCfg?.ptSearchStepDbm ?? DEFAULT_LOC_CONFIG.ptStepDbm,
     };
     const algo: LocalizationAlgorithm = locCfg?.algorithm ?? "annulus";
-    const binHz = locCfg?.channelBinHz ?? DEFAULT_CHANNEL_BIN_HZ;
+    const toleranceHz =
+        locCfg?.channelToleranceHz ?? DEFAULT_CHANNEL_TOLERANCE_HZ;
+    const maxSpanHz = locCfg?.channelMaxSpanHz ?? DEFAULT_CHANNEL_MAX_SPAN_HZ;
     const minControllers =
         locCfg?.minControllersPerChannel ?? DEFAULT_MIN_CONTROLLERS;
     const minPeakDbm = locCfg?.minPeakDbm ?? DEFAULT_MIN_PEAK_DBM;
@@ -128,7 +141,7 @@ export function runLocalization(
     const ctrlMap = new Map(
         payload.controllers.map((c) => [c.controllerId, c])
     );
-    const byChannel = groupByChannel(payload, binHz);
+    const byChannel = groupByChannel(payload, toleranceHz, maxSpanHz);
 
     console.log(
         `localize batch=${payload.batchId} channels=${byChannel.size} controllers=${ctrlMap.size}`

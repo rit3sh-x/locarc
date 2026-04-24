@@ -10,11 +10,11 @@ const crons = cronJobs();
 //     internal.jobs.localization.createBatchesForActiveAdmins
 // );
 
-crons.interval(
-    "dispatch pending batches",
-    { minutes: 5 },
-    internal.jobs.localization.dispatchPendingBatches
-);
+// crons.interval(
+//     "dispatch pending batches",
+//     { minutes: 5 },
+//     internal.jobs.localization.dispatchPendingBatches
+// );
 
 crons.interval(
     "cleanup old batches",
