@@ -3,11 +3,12 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
-crons.interval(
-    "create batches for active admins",
-    { minutes: 5 },
-    internal.jobs.localization.createBatchesForActiveAdmins
-);
+// TODO
+// crons.interval(
+//     "create batches for active admins",
+//     { minutes: 5 },
+//     internal.jobs.localization.createBatchesForActiveAdmins
+// );
 
 crons.interval(
     "dispatch pending batches",
@@ -19,6 +20,18 @@ crons.interval(
     "cleanup old batches",
     { hours: 1 },
     internal.jobs.localization.cleanupOldBatches
+);
+
+crons.interval(
+    "cleanup old sdr measurements",
+    { hours: 1 },
+    internal.jobs.localization.cleanupOldSdrMeasurements
+);
+
+crons.interval(
+    "mark and cleanup locations",
+    { minutes: 15 },
+    internal.jobs.localization.cleanupOldLocations
 );
 
 export default crons;

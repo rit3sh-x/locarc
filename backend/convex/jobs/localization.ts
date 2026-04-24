@@ -10,17 +10,16 @@ import {
     LOCATION_MULTIPLIER,
     DISPATCH_TIMEOUT_MS,
     STALE_BATCH_TTL_MS,
+    STALE_SDR_TTL_MS,
+    STALE_LOCATION_TTL_MS,
+    LOCATION_STALE_AFTER_MS,
+    CLEANUP_PAGE_SIZE,
     DEFAULT_CONTROLLER_LATITUDE,
     DEFAULT_CONTROLLER_LONGITUDE,
     SCAN_ID_LENGTH,
 } from "../lib/constants";
-import { Webhook } from "svix";
 import { PaginationResult } from "convex/server";
 import { Doc } from "../betterAuth/_generated/dataModel";
-
-const computeUrl = process.env.COMPUTE_SERVICE_URL!;
-const convexSiteUrl = process.env.CONVEX_SITE_URL!;
-const webhookSecret = process.env.WEBHOOK_SECRET!;
 
 export const getDispatchableBatches = internalQuery({
     args: {},
@@ -153,65 +152,20 @@ export const dispatchPendingBatches = internalAction({
 
         if (batches.length === 0) return;
 
-        if (!computeUrl || !convexSiteUrl || !webhookSecret) {
-            console.error(
-                "Missing required env vars: COMPUTER_SERVICE_URL, CONVEX_SITE_URL, WEBHOOK_SECRET"
-            );
-            return;
-        }
-
         for (const batch of batches) {
-            const payload = await ctx.runQuery(
-                internal.jobs.localization.getBatchPayload,
-                { batchId: batch._id }
+            await ctx.runMutation(
+                internal.jobs.localization.markDispatched,
+                { batchId: batch._id, dispatchedAt: now }
             );
-
-            if (!payload) {
-                console.warn(`Batch ${batch._id} has no payload – skipping`);
-                continue;
-            }
-
-            try {
-                const body = JSON.stringify({
-                    ...payload,
-                    callbackUrl: `${convexSiteUrl}/api/webhook/localization`,
-                });
-
-                const wh = new Webhook(webhookSecret);
-                const msgId = `msg_${batch._id}`;
-                const timestamp = new Date();
-                const signature = wh.sign(msgId, timestamp, body);
-
-                const response = await fetch(computeUrl, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "svix-id": msgId,
-                        "svix-timestamp": Math.floor(timestamp.getTime() / 1000).toString(),
-                        "svix-signature": signature,
-                    },
-                    body,
-                });
-
-                if (!response.ok) {
-                    console.error(
-                        `Dispatch failed for batch ${batch._id}: HTTP ${response.status}`
-                    );
-                    continue;
-                }
-
-                await ctx.runMutation(
-                    internal.jobs.localization.markDispatched,
-                    { batchId: batch._id, dispatchedAt: now }
-                );
-            } catch (error) {
-                console.error(`Error dispatching batch ${batch._id}:`, error);
-            }
+            await ctx.scheduler.runAfter(0, internal.jobs.compute.localize, {
+                batchId: batch._id,
+            });
+            console.log(`Dispatched batch ${batch._id} to in-process compute`);
         }
     },
 });
 
-export const processWebhookResults = internalMutation({
+export const storeLocationResults = internalMutation({
     args: {
         batchId: v.id("jobBatch"),
         scanId: v.string(),
@@ -332,14 +286,6 @@ export const deleteBatchData = internalMutation({
             await ctx.db.delete(row._id);
         }
 
-        const locations = await ctx.db
-            .query("location")
-            .withIndex("by_job_batch_id", (q) => q.eq("jobBatchId", batchId))
-            .collect();
-        for (const row of locations) {
-            await ctx.db.delete(row._id);
-        }
-
         await ctx.db.delete(batchId);
     },
 });
@@ -443,6 +389,139 @@ export const createBatchForAdmin = internalMutation({
         }
 
         return batchId;
+    },
+});
+
+export const getOldSdrMeasurementIds = internalQuery({
+    args: { cutoffTimestamp: v.number(), limit: v.number() },
+    handler: async (ctx, { cutoffTimestamp, limit }) => {
+        const rows = await ctx.db
+            .query("sdrMeasurement")
+            .order("asc")
+            .take(limit);
+        return rows
+            .filter((r) => r._creationTime < cutoffTimestamp)
+            .map((r) => r._id);
+    },
+});
+
+export const deleteSdrMeasurements = internalMutation({
+    args: { ids: v.array(v.id("sdrMeasurement")) },
+    handler: async (ctx, { ids }) => {
+        for (const id of ids) await ctx.db.delete(id);
+    },
+});
+
+export const cleanupOldSdrMeasurements = internalAction({
+    args: {},
+    handler: async (ctx) => {
+        const cutoff = Date.now() - STALE_SDR_TTL_MS;
+        let removed = 0;
+        for (let i = 0; i < 10; i++) {
+            const ids = await ctx.runQuery(
+                internal.jobs.localization.getOldSdrMeasurementIds,
+                { cutoffTimestamp: cutoff, limit: CLEANUP_PAGE_SIZE }
+            );
+            if (ids.length === 0) break;
+            await ctx.runMutation(
+                internal.jobs.localization.deleteSdrMeasurements,
+                { ids }
+            );
+            removed += ids.length;
+            if (ids.length < CLEANUP_PAGE_SIZE) break;
+        }
+        if (removed > 0) {
+            console.log(`Cleanup: removed ${removed} old SDR measurement(s)`);
+        }
+    },
+});
+
+export const getStaleableLocationIds = internalQuery({
+    args: { cutoffTimestamp: v.number(), limit: v.number() },
+    handler: async (ctx, { cutoffTimestamp, limit }) => {
+        const rows = await ctx.db
+            .query("location")
+            .order("asc")
+            .take(limit * 2);
+        return rows
+            .filter(
+                (r) =>
+                    r._creationTime < cutoffTimestamp && r.isStale !== true
+            )
+            .slice(0, limit)
+            .map((r) => r._id);
+    },
+});
+
+export const markLocationsStale = internalMutation({
+    args: { ids: v.array(v.id("location")) },
+    handler: async (ctx, { ids }) => {
+        for (const id of ids) await ctx.db.patch(id, { isStale: true });
+    },
+});
+
+export const getExpiredLocationIds = internalQuery({
+    args: { cutoffTimestamp: v.number(), limit: v.number() },
+    handler: async (ctx, { cutoffTimestamp, limit }) => {
+        const rows = await ctx.db
+            .query("location")
+            .order("asc")
+            .take(limit);
+        return rows
+            .filter((r) => r._creationTime < cutoffTimestamp)
+            .map((r) => r._id);
+    },
+});
+
+export const deleteLocations = internalMutation({
+    args: { ids: v.array(v.id("location")) },
+    handler: async (ctx, { ids }) => {
+        for (const id of ids) await ctx.db.delete(id);
+    },
+});
+
+export const cleanupOldLocations = internalAction({
+    args: {},
+    handler: async (ctx) => {
+        const now = Date.now();
+        const staleCutoff = now - LOCATION_STALE_AFTER_MS;
+        const expireCutoff = now - STALE_LOCATION_TTL_MS;
+
+        let marked = 0;
+        for (let i = 0; i < 10; i++) {
+            const ids = await ctx.runQuery(
+                internal.jobs.localization.getStaleableLocationIds,
+                { cutoffTimestamp: staleCutoff, limit: CLEANUP_PAGE_SIZE }
+            );
+            if (ids.length === 0) break;
+            await ctx.runMutation(
+                internal.jobs.localization.markLocationsStale,
+                { ids }
+            );
+            marked += ids.length;
+            if (ids.length < CLEANUP_PAGE_SIZE) break;
+        }
+
+        let removed = 0;
+        for (let i = 0; i < 10; i++) {
+            const ids = await ctx.runQuery(
+                internal.jobs.localization.getExpiredLocationIds,
+                { cutoffTimestamp: expireCutoff, limit: CLEANUP_PAGE_SIZE }
+            );
+            if (ids.length === 0) break;
+            await ctx.runMutation(
+                internal.jobs.localization.deleteLocations,
+                { ids }
+            );
+            removed += ids.length;
+            if (ids.length < CLEANUP_PAGE_SIZE) break;
+        }
+
+        if (marked > 0 || removed > 0) {
+            console.log(
+                `Cleanup: marked ${marked} location(s) stale, removed ${removed} expired location(s)`
+            );
+        }
     },
 });
 

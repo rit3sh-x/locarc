@@ -2,10 +2,7 @@ import { useMutation } from 'convex/react'
 import { useQuery } from 'convex-helpers/react/cache'
 import { api } from '@backend/api'
 import { useState } from 'react'
-import type {
-    ResetSettingsInput,
-    UpdateSettingsInput,
-} from '../types'
+import type { ResetSettingsInput, UpdateSettingsInput } from '../types'
 import { toast } from 'sonner'
 
 export const useSettings = () => {

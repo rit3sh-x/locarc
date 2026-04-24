@@ -96,19 +96,19 @@ export const getController = query({
             },
             algoSettings: algoSettings
                 ? {
-                      phase1: algoSettings.phase1,
-                      phase2: algoSettings.phase2,
-                      channelMapping: {
-                          ...algoSettings.channelMapping,
-                          powerCalOffsetDb:
-                              controller.powerCalOffsetDbOverride ??
-                              algoSettings.channelMapping.powerCalOffsetDb,
-                      },
-                      ...(algoSettings.powerDetection && {
-                          powerDetection: algoSettings.powerDetection,
-                      }),
-                      localization: algoSettings.localization,
-                  }
+                    phase1: algoSettings.phase1,
+                    phase2: algoSettings.phase2,
+                    channelMapping: {
+                        ...algoSettings.channelMapping,
+                        powerCalOffsetDb:
+                            controller.powerCalOffsetDbOverride ??
+                            algoSettings.channelMapping.powerCalOffsetDb,
+                    },
+                    ...(algoSettings.powerDetection && {
+                        powerDetection: algoSettings.powerDetection,
+                    }),
+                    localization: algoSettings.localization,
+                }
                 : null,
         };
     },
@@ -312,6 +312,7 @@ export const submitMeasurements = mutation({
         const scanId = await ctx.db.insert("sdrMeasurement", {
             jobBatchId: args.jobBatchId,
             controllerId: controller._id,
+            adminId: controller.adminId,
             userId: user._id,
             scanId: jobBatch.scanId,
             samples: args.measurements,

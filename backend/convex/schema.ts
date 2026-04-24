@@ -71,6 +71,7 @@ export default defineSchema({
     sdrMeasurement: defineTable({
         jobBatchId: v.id("jobBatch"),
         controllerId: v.id("controller"),
+        adminId: v.string(),
         userId: v.string(),
         scanId: v.string(),
         samples: v.array(
@@ -82,6 +83,7 @@ export default defineSchema({
     })
         .index("by_job_batch_id", ["jobBatchId"])
         .index("by_controller_id", ["controllerId"])
+        .index("by_admin_id", ["adminId"])
         .index("by_scan_id", ["scanId"]),
 
     location: defineTable({
@@ -98,10 +100,12 @@ export default defineSchema({
         ),
         frequencyHz: v.optional(v.number()),
         controllerCount: v.optional(v.number()),
+        isStale: v.optional(v.boolean()),
     })
         .index("by_job_batch_id", ["jobBatchId"])
         .index("by_admin_id", ["adminId"])
-        .index("by_scan_id", ["scanId"]),
+        .index("by_scan_id", ["scanId"])
+        .index("by_admin_and_stale", ["adminId", "isStale"]),
 
     settings: defineTable({
         orgSlug: v.string(),

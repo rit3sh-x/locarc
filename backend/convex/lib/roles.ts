@@ -14,7 +14,8 @@ const statement = {
     job: ["get"],
     measurement: ["create"],
     profile: ["update", "get"],
-    localization: ["toggle", "stream"],
+    localization: ["toggle", "stream", "replay"],
+    sdr: ["list"],
     settings: ["read", "update"]
 } as const;
 
@@ -26,7 +27,8 @@ export const ROLE_MAP = {
         session: ["list", "terminate"],
         controller: ["list", "create", "update", "delete"],
         profile: ["update", "get"],
-        localization: ["toggle", "stream"],
+        localization: ["toggle", "stream", "replay"],
+        sdr: ["list"],
         settings: ["read", "update"]
     }),
     [ROLES.USER]: ac.newRole({
