@@ -37,7 +37,7 @@ class HackrfModule : Module() {
         private const val MAX_SWEEP_WINDOWS = 400
 
         private const val COLD_OPEN_SETTLE_MS = 250L
-        private const val USB_RESET_QUIESCE_MS = 500L
+        private const val USB_RESET_QUIESCE_MS = 2000L
         private const val PERIODIC_RESET_EVERY_N_SCANS = 20
 
         private const val EVENT_ATTACHED = "onHackrfAttached"
@@ -147,7 +147,6 @@ class HackrfModule : Module() {
             Log.i(TAG, "periodic full reset after $scanCount scans")
             try { hackrf?.close() } catch (_: Exception) {}
             hackrf = null
-            forceFullResetOnNextInit = false
             try { delay(USB_RESET_QUIESCE_MS) } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
             }
@@ -164,6 +163,7 @@ class HackrfModule : Module() {
             if (!found) cont.resumeWithException(UsbException("No HackRF device found"))
         }
         hackrf = device
+        forceFullResetOnNextInit = false
         try { Thread.sleep(COLD_OPEN_SETTLE_MS) } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
         }
@@ -192,6 +192,16 @@ class HackrfModule : Module() {
                                     "productId" to dev.productId
                                 )
                             )
+                            if (forceFullResetOnNextInit && hackrf == null) {
+                                scope.launch {
+                                    try {
+                                        ensureDevice(c)
+                                        Log.i(TAG, "auto-init after attach succeeded")
+                                    } catch (e: Exception) {
+                                        Log.w(TAG, "auto-init after attach failed: ${e.message}")
+                                    }
+                                }
+                            }
                         }
                         UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                             Log.d(TAG, "USB detached: ${dev.deviceName}")
@@ -248,7 +258,6 @@ class HackrfModule : Module() {
                 Log.i(TAG, "periodic full reset after $scanCount scans")
                 try { hackrf?.close() } catch (_: Exception) {}
                 hackrf = null
-                forceFullResetOnNextInit = false
                 try { Thread.sleep(USB_RESET_QUIESCE_MS) } catch (_: InterruptedException) {
                     Thread.currentThread().interrupt()
                 }
@@ -263,6 +272,7 @@ class HackrfModule : Module() {
                 result.fold(
                     onSuccess = {
                         hackrf = it
+                        forceFullResetOnNextInit = false
                         try { Thread.sleep(COLD_OPEN_SETTLE_MS) } catch (_: InterruptedException) {
                             Thread.currentThread().interrupt()
                         }
@@ -318,6 +328,7 @@ class HackrfModule : Module() {
             scanCancelledByDetach = false
             ScanForegroundService.start(ctx)
             val job = scope.launch {
+                var scanSucceeded = false
                 try {
                     val dev = ensureDevice(ctx)
 
@@ -347,6 +358,7 @@ class HackrfModule : Module() {
                     val totalMs = (System.nanoTime() - scanStartNs) / 1_000_000
                     Log.i(TAG, "runFullScan DONE: ${out.size} measurements, ${totalMs} ms")
                     logMemory("runFullScan: done")
+                    scanSucceeded = true
                     promise.resolve(out)
                 } catch (e: CancellationException) {
                     HackrfNative.nativeCancelScan()
@@ -364,17 +376,48 @@ class HackrfModule : Module() {
                     }
                 } finally {
                     scanJob = null
-                    if (HackrfNative.nativeConsumeResetFlag()) {
-                        Log.w(TAG, "native scan issued HackRF reset — recycling wrapper")
+                    val nativeRequestedReset = HackrfNative.nativeConsumeResetFlag()
+                    val cleanlyCancelled = scanCancelledByDetach
+                    val shouldRecycle = nativeRequestedReset || (!scanSucceeded && !cleanlyCancelled)
+                    if (shouldRecycle) {
+                        Log.w(
+                            TAG,
+                            "recycling HackRF wrapper (success=$scanSucceeded " +
+                                    "nativeReset=$nativeRequestedReset)"
+                        )
                         try { hackrf?.close() } catch (_: Exception) {}
                         hackrf = null
-                        forceFullResetOnNextInit = true
-                        lifetimeTotalResets += 1
+                        if (nativeRequestedReset) {
+                            forceFullResetOnNextInit = true
+                            lifetimeTotalResets += 1
+                        }
+                    }
+                    if (scanSucceeded) {
+                        scanCount += 1
+                        if (scanCount % PERIODIC_RESET_EVERY_N_SCANS == 0) {
+                            Log.i(TAG, "scheduling periodic reset (scanCount=$scanCount)")
+                            forceFullResetOnNextInit = true
+                        }
                     }
                     try { ScanForegroundService.stop(ctx) } catch (_: Exception) {}
                 }
             }
             scanJob = job
+        }
+
+        AsyncFunction("cancelScan") { promise: Promise ->
+            try {
+                val job = scanJob
+                if (job != null && job.isActive) {
+                    Log.i(TAG, "cancelScan: requested by JS")
+                    HackrfNative.nativeCancelScan()
+                    promise.resolve(true)
+                } else {
+                    promise.resolve(false)
+                }
+            } catch (e: Exception) {
+                promise.reject("E_CANCEL", e.message ?: "cancel failed", e)
+            }
         }
 
         AsyncFunction("closeDevice") { promise: Promise ->
@@ -388,31 +431,48 @@ class HackrfModule : Module() {
         }
 
         AsyncFunction("resetDevice") { promise: Promise ->
-            try {
-                val job = scanJob
-                if (job != null && job.isActive) {
-                    HackrfNative.nativeCancelScan()
+            val ctx = appContext.reactContext
+                ?: return@AsyncFunction promise.reject("E_NO_CONTEXT", "React context unavailable", null)
+
+            scope.launch {
+                try {
+                    val job = scanJob
+                    if (job != null && job.isActive) {
+                        HackrfNative.nativeCancelScan()
+                    }
+                    val dev = hackrf ?: run {
+                        Log.i(TAG, "resetDevice: cache empty — opening device first so reset packet can be sent")
+                        try {
+                            ensureDevice(ctx)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "resetDevice: failed to open device: ${e.message}")
+                            promise.reject(
+                                "E_NO_DEVICE",
+                                "No HackRF available to reset: ${e.message ?: "unknown"}",
+                                e
+                            )
+                            return@launch
+                        }
+                    }
+                    val rc = dev.reset()
+                    hackrf = null
+                    forceFullResetOnNextInit = true
+                    lifetimeTotalResets += 1
+                    HackrfNative.nativeConsumeResetFlag()
+                    Log.w(TAG, "resetDevice: reset issued rc=$rc (lifetime resets=$lifetimeTotalResets)")
+                    promise.resolve(rc)
+                } catch (e: Exception) {
+                    Log.e(TAG, "resetDevice failed", e)
+                    promise.reject("E_RESET", e.message ?: "reset failed", e)
                 }
-                val dev = hackrf
-                if (dev == null) {
-                    Log.i(TAG, "resetDevice: no cached handle — nothing to reset")
-                    promise.resolve(0)
-                    return@AsyncFunction
-                }
-                val rc = dev.reset()
-                hackrf = null
-                forceFullResetOnNextInit = true
-                lifetimeTotalResets += 1
-                HackrfNative.nativeConsumeResetFlag()
-                Log.w(TAG, "resetDevice: reset issued rc=$rc (lifetime resets=$lifetimeTotalResets)")
-                promise.resolve(rc)
-            } catch (e: Exception) {
-                Log.e(TAG, "resetDevice failed", e)
-                promise.reject("E_RESET", e.message ?: "reset failed", e)
             }
         }
 
         OnDestroy {
+            try {
+                HackrfNative.nativeCancelScan()
+                scanCancelledByDetach = true
+            } catch (_: Exception) {}
             val ctx = appContext.reactContext
             val receiver = usbReceiver
             if (ctx != null && receiver != null) {

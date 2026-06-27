@@ -3,17 +3,21 @@ import { useMutation, useQuery } from 'convex/react'
 import { api } from '@backend/api'
 import * as Location from 'expo-location'
 
-const LOCATION_INTERVAL_MS = 10 * 60 * 1000
-const DEFAULT_LAT = -1
-const DEFAULT_LON = -1
+const LOCATION_INTERVAL_MS = 10 * 1000
+const POSITION_EQUAL_EPSILON_DEG = 1e-5
 
 export function useLocation() {
     const controller = useQuery(api.public.controller.getController)
     const submitLocation = useMutation(api.public.controller.submitLocation)
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
     const submittingRef = useRef(false)
+    const controllerRef = useRef(controller)
 
-    const pushLocation = useCallback(async () => {
+    useEffect(() => {
+        controllerRef.current = controller
+    }, [controller])
+
+    const syncLocation = useCallback(async () => {
         if (submittingRef.current) return
         submittingRef.current = true
 
@@ -25,10 +29,18 @@ export function useLocation() {
                 accuracy: Location.Accuracy.High,
             })
 
-            await submitLocation({
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-            })
+            const { latitude, longitude } = position.coords
+            const current = controllerRef.current
+
+            if (
+                current &&
+                Math.abs(current.latitude - latitude) < POSITION_EQUAL_EPSILON_DEG &&
+                Math.abs(current.longitude - longitude) < POSITION_EQUAL_EPSILON_DEG
+            ) {
+                return
+            }
+
+            await submitLocation({ latitude, longitude })
         } catch (err) {
             console.error('Location push failed:', err)
         } finally {
@@ -37,16 +49,8 @@ export function useLocation() {
     }, [submitLocation])
 
     useEffect(() => {
-        if (!controller) return
-
-        const isDefault =
-            controller.latitude === DEFAULT_LAT && controller.longitude === DEFAULT_LON
-
-        if (isDefault) {
-            pushLocation()
-        }
-
-        intervalRef.current = setInterval(pushLocation, LOCATION_INTERVAL_MS)
+        syncLocation()
+        intervalRef.current = setInterval(syncLocation, LOCATION_INTERVAL_MS)
 
         return () => {
             if (intervalRef.current) {
@@ -54,5 +58,5 @@ export function useLocation() {
                 intervalRef.current = null
             }
         }
-    }, [controller, pushLocation])
+    }, [syncLocation])
 }

@@ -1,4 +1,4 @@
-import { Alert } from 'react-native'
+import { ActivityIndicator, Alert } from 'react-native'
 import { Button } from '@/components/ui/button'
 import HackrfModule from '~/native'
 import { RotateCcwIcon } from 'lucide-react-native'
@@ -11,8 +11,8 @@ export const ResetDevice = () => {
         if (loading) return
         setLoading(true)
         try {
-            const rc = await HackrfModule.resetDevice()
-            Alert.alert('HackRF reset', `Device reboot requested (rc=${rc}).`)
+            await HackrfModule.resetDevice()
+            Alert.alert('HackRF reset', 'Reboot requested. Device will reconnect in a few seconds.')
         } catch (e) {
             const msg = e instanceof Error ? e.message : String(e)
             Alert.alert('Reset failed', msg)
@@ -28,7 +28,7 @@ export const ResetDevice = () => {
             onPress={handleReset}
             disabled={loading}
         >
-            <RotateCcwIcon />
+            {loading ? <ActivityIndicator size="small" /> : <RotateCcwIcon />}
         </Button>
     )
 }

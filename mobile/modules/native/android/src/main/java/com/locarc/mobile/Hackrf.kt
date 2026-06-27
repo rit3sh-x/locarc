@@ -108,6 +108,9 @@ class Hackrf private constructor(
         val rc = HackrfNative.nativeReset(handle_)
         handle_ = 0L
         transceiverMode = HACKRF_TRANSCEIVER_MODE_OFF
+        try { Thread.sleep(POST_RESET_FD_GRACE_MS) } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
         try { connection.close() } catch (_: Exception) {}
         Log.w(TAG, "Hackrf reset sent (rc=$rc) — device rebooting, handle closed")
         return rc
@@ -120,6 +123,8 @@ class Hackrf private constructor(
     companion object {
         private const val TAG = "Hackrf"
         private const val PACKET_SIZE_BYTES = 256 * 1024
+        private const val POST_RESET_FD_GRACE_MS = 200L
+        private const val OPEN_RETRY_DELAY_MS = 1000L
 
         const val HACKRF_TRANSCEIVER_MODE_OFF = 0
         const val HACKRF_TRANSCEIVER_MODE_RECEIVE = 1
@@ -127,8 +132,17 @@ class Hackrf private constructor(
 
         @Throws(UsbException::class)
         fun open(usbManager: UsbManager, device: UsbDevice): Hackrf {
-            val conn = usbManager.openDevice(device)
-                ?: throw UsbException("openDevice returned null — device gone?")
+            var conn = usbManager.openDevice(device)
+            if (conn == null) {
+                Log.w(TAG, "openDevice null — bus may be re-enumerating, retrying after ${OPEN_RETRY_DELAY_MS}ms")
+                try { Thread.sleep(OPEN_RETRY_DELAY_MS) } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                }
+                conn = usbManager.openDevice(device)
+            }
+            if (conn == null) {
+                throw UsbException("openDevice returned null — device gone?")
+            }
             val fd = conn.fileDescriptor
             if (fd < 0) {
                 conn.close()

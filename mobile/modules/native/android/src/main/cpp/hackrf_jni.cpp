@@ -146,8 +146,11 @@ extern "C"
         jdoubleArray algoDoubles, jintArray algoInts)
     {
         auto *d = drv(h);
-        if (!d)
-            return env->NewDoubleArray(0);
+        if (!d) {
+            jclass exClass = env->FindClass("java/lang/IllegalStateException");
+            if (exClass) env->ThrowNew(exClass, "HackRF handle freed before scan started");
+            return nullptr;
+        }
 
         jdouble *dArr = env->GetDoubleArrayElements(algoDoubles, nullptr);
         jint *iArr = env->GetIntArrayElements(algoInts, nullptr);

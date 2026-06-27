@@ -24,7 +24,7 @@ export const ReadingCard = ({ reading, onView }: ReadingCardProps): React.JSX.El
             className="cursor-pointer hover:border-primary transition-colors"
             onClick={() => onView?.(reading)}
         >
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                         <RadioTowerIcon className="size-4 shrink-0 text-muted-foreground" />

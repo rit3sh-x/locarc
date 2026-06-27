@@ -24,6 +24,7 @@ declare class HackrfNativeModule extends NativeModule<HackrfModuleEvents> {
     runFullScan(settings: ScanSettings, algoSettings: AlgoSettings): Promise<PowerMeasurement[]>
     closeDevice(): Promise<boolean>
     resetDevice(): Promise<number>
+    cancelScan(): Promise<boolean>
 }
 
 export default requireNativeModule<HackrfNativeModule>('Hackrf')

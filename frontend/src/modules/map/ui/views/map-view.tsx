@@ -1,9 +1,13 @@
 import { Loader2Icon } from 'lucide-react'
 import { ToggleButton, ToggleButtonSkeleton } from '../components/toggle-button'
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useMemo } from 'react'
 import { MapCursorProvider, useMapCursor } from '../../context/map'
 import { useLocations } from '../../hooks/use-map'
 import { useUserInfo } from '@/modules/dashboard/hooks/use-user'
+import type { ControllerLocation, Location } from '../../types'
+
+const SEED_LOCATION_LAT = 30.968083
+const SEED_LOCATION_LNG = 76.473056
 
 const LiveMap = lazy(() =>
     import('../components/live-map').then((m) => ({
@@ -11,9 +15,36 @@ const LiveMap = lazy(() =>
     })),
 )
 
+const generateSeedLocationWithError = (): Location => {
+    return {
+        latitude: SEED_LOCATION_LAT,
+        longitude: SEED_LOCATION_LNG,
+    }
+}
+
+const averageControllerCenter = (controllers: ControllerLocation[]): Location | null => {
+    if (controllers.length === 0) return generateSeedLocationWithError()
+    const sum = controllers.reduce(
+        (acc, c) => ({
+            latitude: acc.latitude + c.coordinate.latitude,
+            longitude: acc.longitude + c.coordinate.longitude,
+        }),
+        { latitude: 0, longitude: 0 },
+    )
+    return {
+        latitude: sum.latitude / controllers.length,
+        longitude: sum.longitude / controllers.length,
+    }
+}
+
 export const MapView = (): React.JSX.Element => {
     const { profile, isLoading } = useUserInfo()
     const { locations, controllers } = useLocations()
+
+    const fallbackCenter = useMemo(
+        () => (locations.length === 0 ? averageControllerCenter(controllers) : null),
+        [locations.length, controllers],
+    )
 
     if (isLoading || !profile) return <MapViewSkeleton />
 
@@ -21,7 +52,13 @@ export const MapView = (): React.JSX.Element => {
         <MapCursorProvider>
             <div className="relative h-[calc(100vh-4rem)] w-full overflow-hidden">
                 <div className="z-10 relative w-full h-full">
-                    <LiveMap locations={locations} controllers={controllers} />
+                    <LiveMap
+                        locations={locations}
+                        controllers={controllers}
+                        fallbackCenter={fallbackCenter}
+                        seedLat={SEED_LOCATION_LAT}
+                        seedLng={SEED_LOCATION_LNG}
+                    />
                 </div>
                 <div className="pointer-events-none w-full h-full p-2 absolute top-0 left-0 z-50 flex flex-col justify-between items-center">
                     <Suspense fallback={<ToggleButtonSkeleton />}>

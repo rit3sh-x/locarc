@@ -1,3 +1,5 @@
+import { View } from 'react-native'
+import { Text } from '@/components/ui/text'
 import { InfoCard } from './info-card'
 import { InfoRow } from './info-row'
 import type { HackrfStatus } from '../../types'
@@ -22,5 +24,12 @@ export const ConnectionCard = ({
         <InfoRow label="Server" value={isConnected ? 'Connected' : 'Disconnected'} />
         <InfoRow label="HackRF" value={hackrfLabel(status, hackrfConnected)} />
         <InfoRow label="Scanning" value={started ? 'Enabled' : 'Disabled'} />
+        {!hackrfConnected && (
+            <View className="pt-2">
+                <Text className="text-muted-foreground text-xs">
+                    HackRF not detected. Plug in the device or tap reset.
+                </Text>
+            </View>
+        )}
     </InfoCard>
 )

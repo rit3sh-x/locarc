@@ -8,12 +8,16 @@ import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.core.content.ContextCompat
+import java.util.concurrent.atomic.AtomicBoolean
 
 object Detect {
     private const val TAG = "hackrf_android"
     private const val USB_PERMISSION = "com.locarc.mobile.USB_PERMISSION"
+    private const val PERMISSION_TIMEOUT_MS = 10_000L
 
     const val VENDOR_ID = 7504
     const val PRODUCT_ID_HACKRF_ONE = 24713
@@ -82,9 +86,24 @@ object Detect {
             return true
         }
 
+        val resolved = AtomicBoolean(false)
+        val mainHandler = Handler(Looper.getMainLooper())
+        var receiverRef: BroadcastReceiver? = null
+
+        val timeoutRunnable = Runnable {
+            if (!resolved.compareAndSet(false, true)) return@Runnable
+            receiverRef?.let {
+                try { context.unregisterReceiver(it) } catch (_: Exception) {}
+            }
+            Log.w(TAG, "initHackrf: permission request timed out after ${PERMISSION_TIMEOUT_MS}ms")
+            onResult(Result.failure(UsbException("USB permission request timed out")))
+        }
+
         val permissionReceiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
-                ctx.unregisterReceiver(this)
+                if (!resolved.compareAndSet(false, true)) return
+                mainHandler.removeCallbacks(timeoutRunnable)
+                try { ctx.unregisterReceiver(this) } catch (_: Exception) {}
                 if (USB_PERMISSION != intent.action) return
 
                 val device: UsbDevice? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -106,6 +125,7 @@ object Detect {
                 }
             }
         }
+        receiverRef = permissionReceiver
 
         val permissionIntent = PendingIntent.getBroadcast(
             context, 0,
@@ -118,6 +138,8 @@ object Detect {
             IntentFilter(USB_PERMISSION),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
+
+        mainHandler.postDelayed(timeoutRunnable, PERMISSION_TIMEOUT_MS)
 
         usbManager.requestPermission(hackrfUsbDevice, permissionIntent)
         Log.d(TAG, "Permission request for ${hackrfUsbDevice.deviceName} was sent.")

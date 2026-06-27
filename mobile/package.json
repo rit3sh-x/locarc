@@ -83,6 +83,7 @@
     "@better-auth/core": "1.5.3"
   },
   "devDependencies": {
+    "@expo/config-plugins": "^55.0.8",
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",

@@ -1,10 +1,13 @@
-import { MapContainer, Marker, Polygon, useMap, useMapEvents } from 'react-leaflet'
-import type { LocationWithBounds, ControllerLocation } from '../../types'
+import { Circle, MapContainer, Marker, Polygon, useMap, useMapEvents } from 'react-leaflet'
+import type { LocationWithBounds, ControllerLocation, Location } from '../../types'
 import { TileController } from './tile-controller'
 import { controllerIcon, locationIcon } from './leaflet-icons'
-import { useEffect, Fragment } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import { useMapCursor } from '../../context/map'
 import L from 'leaflet'
+
+const FALLBACK_RANGE_MIN_M = 2000
+const FALLBACK_RANGE_MAX_M = 6000
 
 function MapCursorTracker() {
     const { setPos } = useMapCursor()
@@ -47,6 +50,20 @@ function MapInit() {
 
         return () => resizeObserver.disconnect()
     }, [map])
+
+    return null
+}
+
+function MapCenterController({ fallbackCenter, seedLat, seedLng }: { fallbackCenter: Location | null | undefined; seedLat?: number; seedLng?: number }) {
+    const map = useMap()
+
+    useEffect(() => {
+        if (fallbackCenter) {
+            const lat = seedLat ?? fallbackCenter.latitude
+            const lng = seedLng ?? fallbackCenter.longitude
+            map.setView([lat, lng], 14, { animate: true, duration: 0.5 })
+        }
+    }, [map, seedLat, seedLng, fallbackCenter?.latitude, fallbackCenter?.longitude])
 
     return null
 }
@@ -94,9 +111,32 @@ function ControllerMarkers({ points }: { points: ControllerLocation[] }) {
 interface LiveMapProps {
     locations: LocationWithBounds[]
     controllers: ControllerLocation[]
+    fallbackCenter?: Location | null
+    seedLat?: number
+    seedLng?: number
 }
 
-export const LiveMap = ({ locations, controllers }: LiveMapProps): React.JSX.Element => {
+export const LiveMap = ({ locations, controllers, fallbackCenter, seedLat, seedLng }: LiveMapProps): React.JSX.Element => {
+    const [fallbackRangeM, setFallbackRangeM] = useState<number | null>(null)
+
+    useEffect(() => {
+        if (!fallbackCenter) {
+            setFallbackRangeM(null)
+            return
+        }
+
+        const generateRange = () =>
+            FALLBACK_RANGE_MIN_M +
+            Math.random() * (FALLBACK_RANGE_MAX_M - FALLBACK_RANGE_MIN_M)
+
+        setFallbackRangeM(generateRange())
+        const intervalId = window.setInterval(() => {
+            setFallbackRangeM(generateRange())
+        }, 30_000)
+
+        return () => window.clearInterval(intervalId)
+    }, [fallbackCenter?.latitude, fallbackCenter?.longitude])
+
     return (
         <MapContainer
             className="w-full h-full overflow-hidden"
@@ -110,10 +150,31 @@ export const LiveMap = ({ locations, controllers }: LiveMapProps): React.JSX.Ele
             attributionControl={false}
         >
             <MapInit />
+            <MapCenterController fallbackCenter={fallbackCenter} seedLat={seedLat} seedLng={seedLng} />
             <TileController />
             <MapCursorTracker />
             <MovingMarkers points={locations} />
             <ControllerMarkers points={controllers} />
+            {!locations.length && fallbackCenter && (
+                <>
+                    {fallbackRangeM !== null && (
+                        <Circle
+                            center={[seedLat ?? fallbackCenter.latitude, seedLng ?? fallbackCenter.longitude]}
+                            radius={fallbackRangeM}
+                            pathOptions={{
+                                fillOpacity: 0.2,
+                                opacity: 0.5,
+                                color: '#3b82f6',
+                                fillColor: '#3b82f6',
+                            }}
+                        />
+                    )}
+                    <Marker
+                        position={[seedLat ?? fallbackCenter.latitude, seedLng ?? fallbackCenter.longitude]}
+                        icon={locationIcon}
+                    />
+                </>
+            )}
         </MapContainer>
     )
 }

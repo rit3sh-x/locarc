@@ -164,6 +164,8 @@ namespace locarc
 
         RealVec kaiserWindow(int n, double beta)
         {
+            if (n <= 0) return RealVec();
+            if (n == 1) return RealVec(1, 1.0);
             RealVec w(n);
             const double alpha = (n - 1) / 2.0;
             const double denom = besselI0(beta);

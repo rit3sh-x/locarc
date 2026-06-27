@@ -243,8 +243,9 @@ namespace locarc
             transceiverMode_ = TRANSCEIVER_MODE_OFF;
         }
         int rc = libusb_control_transfer(
-            dev_, CTRL_OUT(), RESET, 0, 0, nullptr, 0, 100);
-        LOGI("reset: control_transfer rc=%d (errors expected — device rebooting)", rc);
+            dev_, CTRL_OUT(), RESET, 0, 0, nullptr, 0, CONTROL_TIMEOUT_MS);
+        LOGI("reset: control_transfer rc=%d (%s) — errors expected if device rebooting before ack",
+             rc, rc < 0 ? libusb_error_name(rc) : "ok");
         close();
         return rc;
     }

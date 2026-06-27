@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { AppState } from 'react-native'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@backend/api'
 import type { Id } from '@backend/dataModel'
@@ -22,13 +23,21 @@ export function useHackrf() {
     useEffect(() => {
         let mounted = true
 
-        HackrfModule.isConnected()
-            .then((c) => {
-                if (mounted) setHackrfConnected(c)
-            })
-            .catch(() => {
-                if (mounted) setHackrfConnected(false)
-            })
+        const refresh = () => {
+            HackrfModule.isConnected()
+                .then((c) => {
+                    if (mounted) setHackrfConnected(c)
+                })
+                .catch(() => {
+                    if (mounted) setHackrfConnected(false)
+                })
+        }
+
+        refresh()
+
+        const appStateSub = AppState.addEventListener('change', (state) => {
+            if (state === 'active') refresh()
+        })
 
         const attachSub = HackrfModule.addListener('onHackrfAttached', () => {
             setHackrfConnected(true)
@@ -39,6 +48,7 @@ export function useHackrf() {
 
         return () => {
             mounted = false
+            appStateSub.remove()
             attachSub.remove()
             detachSub.remove()
         }
@@ -137,6 +147,7 @@ export function useHackrf() {
 
         return () => {
             cancelled.current = true
+            HackrfModule.cancelScan().catch(() => {})
         }
     }, [controller, latestJob, runScan])
 

@@ -85,8 +85,13 @@ export const StatusIndicator = ({
             </Badge>
 
             {error && (
-                <View className="bg-destructive/10 rounded-xl px-5 py-3 w-full">
+                <View className="bg-destructive/10 rounded-xl px-5 py-3 w-full gap-1">
                     <Text className="text-destructive text-center text-sm">{error}</Text>
+                    {isUsbError(error) && (
+                        <Text className="text-destructive/80 text-center text-xs">
+                            Tap the reset button or replug the HackRF.
+                        </Text>
+                    )}
                 </View>
             )}
 
@@ -98,3 +103,6 @@ export const StatusIndicator = ({
         </View>
     )
 }
+
+const isUsbError = (msg: string): boolean =>
+    /HackRF|HACKRF_DISCONNECTED|libusb|UsbException|openDevice returned null/i.test(msg)
