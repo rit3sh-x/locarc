@@ -35,9 +35,11 @@ export const localize = internalAction({
 
         const startedAt = Date.now();
         let locations: LocationResult[] = [];
+        let failed = false;
         try {
             locations = runLocalization(input);
         } catch (e) {
+            failed = true;
             const msg =
                 e instanceof LocalizationError
                     ? e.message
@@ -51,8 +53,16 @@ export const localize = internalAction({
 
         const elapsed = Date.now() - startedAt;
         console.log(
-            `compute.localize batch=${payload.batchId} locations=${locations.length} elapsedMs=${elapsed}`
+            `compute.localize batch=${payload.batchId} locations=${locations.length} elapsedMs=${elapsed} failed=${failed}`
         );
+
+        if (failed) {
+            await ctx.runMutation(
+                internal.jobs.localization.markBatchFailed,
+                { batchId: payload.batchId }
+            );
+            return;
+        }
 
         await ctx.runMutation(
             internal.jobs.localization.storeLocationResults,

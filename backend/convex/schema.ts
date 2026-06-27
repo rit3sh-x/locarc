@@ -14,6 +14,7 @@ export default defineSchema({
         userId: v.string(),
         name: v.string(),
         serialNumber: v.optional(v.string()),
+        organizationSlug: v.string(),
         longitudeE6: v.number(),
         latitudeE6: v.number(),
         minFrequencyHz: v.number(),

@@ -45,6 +45,12 @@ export const create = mutation({
                 code: "BAD_REQUEST",
                 message: "Username must be at least 3 characters",
             });
+        if (!/^[a-z0-9_-]+$/i.test(username)) {
+            throw new ConvexError({
+                code: "BAD_REQUEST",
+                message: "Username may only contain letters, digits, underscore, hyphen",
+            });
+        }
         if (password.length < 8)
             throw new ConvexError({
                 code: "BAD_REQUEST",
@@ -127,6 +133,7 @@ export const create = mutation({
         const controllerId = await ctx.db.insert("controller", {
             adminId: admin._id,
             userId: user._id,
+            organizationSlug: admin.organizationSlug,
             latitudeE6: DEFAULT_CONTROLLER_LATITUDE * LOCATION_MULTIPLIER,
             longitudeE6: DEFAULT_CONTROLLER_LONGITUDE * LOCATION_MULTIPLIER,
             minFrequencyHz: settings.minFrequencyHz,
@@ -185,6 +192,12 @@ export const update = mutation({
                 code: "BAD_REQUEST",
                 message: "Username must be at least 3 characters",
             });
+        if (username !== undefined && !/^[a-z0-9_-]+$/i.test(username)) {
+            throw new ConvexError({
+                code: "BAD_REQUEST",
+                message: "Username may only contain letters, digits, underscore, hyphen",
+            });
+        }
         if (password !== undefined && password.length < 8)
             throw new ConvexError({
                 code: "BAD_REQUEST",

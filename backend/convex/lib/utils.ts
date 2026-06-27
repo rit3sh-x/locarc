@@ -4,6 +4,9 @@ import { DataModel } from "../_generated/dataModel";
 import { PermissionRequest, ROLE_MAP } from "./roles";
 import { components } from "../_generated/api";
 import { Doc } from "../betterAuth/_generated/dataModel";
+import { MutationCtx } from "../_generated/server";
+import { rateLimiter, RateLimitName } from "./rateLimiter";
+import { ConvexError } from "convex/values";
 
 export async function requireAccess(
     ctx: GenericCtx<DataModel>,
@@ -56,4 +59,22 @@ export async function requireAccess(
     return {
         user,
     };
+}
+
+export async function rateLimit(
+    ctx: MutationCtx,
+    name: RateLimitName,
+    userId: string
+) {
+    const { ok, retryAfter } = await rateLimiter.limit(ctx, name, {
+        key: userId,
+    });
+
+    if (!ok) {
+        throw new ConvexError({
+            code: "RATE_LIMITED",
+            message: `Too many requests. Try again in ${Math.ceil(retryAfter / 1000)}s.`,
+            retryAfter,
+        });
+    }
 }

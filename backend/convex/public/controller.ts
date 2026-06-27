@@ -5,9 +5,8 @@ import {
     LOCATION_MULTIPLIER,
 } from "../lib/constants";
 import { requireAccess } from "../lib/utils";
+import { rateLimit } from "../lib/utils";
 import { ConvexError, v } from "convex/values";
-import { components } from "../_generated/api";
-import type { Doc } from "../betterAuth/_generated/dataModel";
 
 const LOCATION_UPDATE_RADIUS_METERS = 20;
 
@@ -52,31 +51,10 @@ export const getController = query({
             });
         }
 
-        const admin: Doc<"user"> | null = await ctx.runQuery(
-            components.betterAuth.adapter.findOne,
-            {
-                model: "user",
-                where: [
-                    {
-                        field: "_id",
-                        value: controller.adminId,
-                        operator: "eq",
-                    },
-                ],
-            }
-        );
-
-        if (!admin) {
-            throw new ConvexError({
-                code: "NOT_FOUND",
-                message: "Admin not found for this controller",
-            });
-        }
-
         const algoSettings = await ctx.db
             .query("settings")
             .withIndex("by_org_slug", (q) =>
-                q.eq("orgSlug", admin.organizationSlug)
+                q.eq("orgSlug", controller.organizationSlug)
             )
             .unique();
 
@@ -188,12 +166,21 @@ export const submitLocation = mutation({
             controller: ["location"],
         });
 
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+            throw new ConvexError({
+                code: "INVALID_INPUT",
+                message: "Latitude or longitude is not a finite number",
+            });
+        }
+
         if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
             throw new ConvexError({
                 code: "INVALID_INPUT",
                 message: "Latitude or longitude out of range",
             });
         }
+
+        await rateLimit(ctx, "submitLocation", user._id);
 
         const controller = await ctx.db
             .query("controller")
@@ -250,6 +237,8 @@ export const submitMeasurements = mutation({
             measurement: ["create"],
         });
 
+        await rateLimit(ctx, "submitMeasurements", user._id);
+
         const now = Date.now();
 
         if (args.measurements.length === 0) {
@@ -257,6 +246,34 @@ export const submitMeasurements = mutation({
                 code: "INVALID_INPUT",
                 message: "No measurements provided",
             });
+        }
+
+        const MAX_MEASUREMENTS_PER_BATCH = 50_000;
+        if (args.measurements.length > MAX_MEASUREMENTS_PER_BATCH) {
+            throw new ConvexError({
+                code: "INVALID_INPUT",
+                message: `Too many measurements (max ${MAX_MEASUREMENTS_PER_BATCH})`,
+            });
+        }
+
+        const MIN_FREQ_HZ = 1_000_000;
+        const MAX_FREQ_HZ = 6_000_000_000;
+        const MIN_POWER_DBM = -200;
+        const MAX_POWER_DBM = 50;
+        for (const s of args.measurements) {
+            if (
+                !Number.isFinite(s.frequencyHz) ||
+                s.frequencyHz < MIN_FREQ_HZ ||
+                s.frequencyHz > MAX_FREQ_HZ ||
+                !Number.isFinite(s.powerDbm) ||
+                s.powerDbm < MIN_POWER_DBM ||
+                s.powerDbm > MAX_POWER_DBM
+            ) {
+                throw new ConvexError({
+                    code: "INVALID_INPUT",
+                    message: `Invalid measurement: freq=${s.frequencyHz} power=${s.powerDbm}`,
+                });
+            }
         }
 
         const controller = await ctx.db
@@ -347,9 +364,6 @@ export const submitMeasurements = mutation({
             success: true,
             measurementCount: args.measurements.length,
             scanId,
-            batchStatus: allReceived ? "PROCESSING" : "PENDING",
-            receivedCount: jobBatch.receivedControllerCount + 1,
-            expectedCount: jobBatch.expectedControllerCount,
         };
     },
 });

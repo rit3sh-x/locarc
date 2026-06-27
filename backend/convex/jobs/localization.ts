@@ -185,6 +185,14 @@ export const storeLocationResults = internalMutation({
         ),
     },
     handler: async (ctx, args) => {
+        const MAX_LOCATIONS_PER_BATCH = 1000;
+        if (args.locations.length > MAX_LOCATIONS_PER_BATCH) {
+            throw new ConvexError({
+                code: "INVALID_INPUT",
+                message: `Too many locations (max ${MAX_LOCATIONS_PER_BATCH})`,
+            });
+        }
+
         const batch = await ctx.db.get(args.batchId);
 
         if (!batch) {

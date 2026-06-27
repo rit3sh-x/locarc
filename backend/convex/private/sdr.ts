@@ -61,16 +61,16 @@ export const list = query({
         return {
             ...result,
             page: result.page.map((row) => {
-                const powers = row.samples.map((s) => s.powerDbm);
-                const peakDbm = powers.length
-                    ? Math.max(...powers)
-                    : null;
-                const minDbm = powers.length
-                    ? Math.min(...powers)
-                    : null;
-                const freqs = row.samples.map((s) => s.frequencyHz);
-                const minHz = freqs.length ? Math.min(...freqs) : null;
-                const maxHz = freqs.length ? Math.max(...freqs) : null;
+                let peakDbm: number | null = null;
+                let minDbm: number | null = null;
+                let minHz: number | null = null;
+                let maxHz: number | null = null;
+                for (const s of row.samples) {
+                    if (peakDbm === null || s.powerDbm > peakDbm) peakDbm = s.powerDbm;
+                    if (minDbm === null || s.powerDbm < minDbm) minDbm = s.powerDbm;
+                    if (minHz === null || s.frequencyHz < minHz) minHz = s.frequencyHz;
+                    if (maxHz === null || s.frequencyHz > maxHz) maxHz = s.frequencyHz;
+                }
                 return {
                     id: row._id,
                     createdAt: row._creationTime,
