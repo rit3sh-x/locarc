@@ -54,7 +54,15 @@ function MapInit() {
     return null
 }
 
-function MapCenterController({ fallbackCenter, seedLat, seedLng }: { fallbackCenter: Location | null | undefined; seedLat?: number; seedLng?: number }) {
+function MapCenterController({
+    fallbackCenter,
+    seedLat,
+    seedLng,
+}: {
+    fallbackCenter: Location | null | undefined
+    seedLat?: number
+    seedLng?: number
+}) {
     const map = useMap()
 
     useEffect(() => {
@@ -116,7 +124,13 @@ interface LiveMapProps {
     seedLng?: number
 }
 
-export const LiveMap = ({ locations, controllers, fallbackCenter, seedLat, seedLng }: LiveMapProps): React.JSX.Element => {
+export const LiveMap = ({
+    locations,
+    controllers,
+    fallbackCenter,
+    seedLat,
+    seedLng,
+}: LiveMapProps): React.JSX.Element => {
     const [fallbackRangeM, setFallbackRangeM] = useState<number | null>(null)
 
     useEffect(() => {
@@ -126,8 +140,7 @@ export const LiveMap = ({ locations, controllers, fallbackCenter, seedLat, seedL
         }
 
         const generateRange = () =>
-            FALLBACK_RANGE_MIN_M +
-            Math.random() * (FALLBACK_RANGE_MAX_M - FALLBACK_RANGE_MIN_M)
+            FALLBACK_RANGE_MIN_M + Math.random() * (FALLBACK_RANGE_MAX_M - FALLBACK_RANGE_MIN_M)
 
         setFallbackRangeM(generateRange())
         const intervalId = window.setInterval(() => {
@@ -150,7 +163,11 @@ export const LiveMap = ({ locations, controllers, fallbackCenter, seedLat, seedL
             attributionControl={false}
         >
             <MapInit />
-            <MapCenterController fallbackCenter={fallbackCenter} seedLat={seedLat} seedLng={seedLng} />
+            <MapCenterController
+                fallbackCenter={fallbackCenter}
+                seedLat={seedLat}
+                seedLng={seedLng}
+            />
             <TileController />
             <MapCursorTracker />
             <MovingMarkers points={locations} />
@@ -159,7 +176,10 @@ export const LiveMap = ({ locations, controllers, fallbackCenter, seedLat, seedL
                 <>
                     {fallbackRangeM !== null && (
                         <Circle
-                            center={[seedLat ?? fallbackCenter.latitude, seedLng ?? fallbackCenter.longitude]}
+                            center={[
+                                seedLat ?? fallbackCenter.latitude,
+                                seedLng ?? fallbackCenter.longitude,
+                            ]}
                             radius={fallbackRangeM}
                             pathOptions={{
                                 fillOpacity: 0.2,
@@ -170,7 +190,10 @@ export const LiveMap = ({ locations, controllers, fallbackCenter, seedLat, seedL
                         />
                     )}
                     <Marker
-                        position={[seedLat ?? fallbackCenter.latitude, seedLng ?? fallbackCenter.longitude]}
+                        position={[
+                            seedLat ?? fallbackCenter.latitude,
+                            seedLng ?? fallbackCenter.longitude,
+                        ]}
                         icon={locationIcon}
                     />
                 </>

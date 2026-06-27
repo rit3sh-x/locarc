@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ReadingFilters } from '../components/reading-filters'
 import { ReadingList } from '../components/reading-list'
 import { ReadingDetail } from '../components/reading-detail'
+import { ExportButton } from '../components/export-button'
 import { useSdrControllers } from '../../hooks/use-sdr'
 import type { Id } from '@backend/dataModel'
 import type { SdrReading } from '../../types'
@@ -26,11 +27,14 @@ export const SdrView = (): React.JSX.Element => {
                         Raw power spectra submitted by controllers. Auto-pruned after 24h.
                     </p>
                 </div>
-                <ReadingFilters
-                    controllers={controllers}
-                    selected={selected}
-                    onSelect={setSelected}
-                />
+                <div className="flex items-center gap-2">
+                    <ReadingFilters
+                        controllers={controllers}
+                        selected={selected}
+                        onSelect={setSelected}
+                    />
+                    <ExportButton controllerId={selected} />
+                </div>
             </div>
 
             <ReadingList controllerId={selected} onView={handleView} />
