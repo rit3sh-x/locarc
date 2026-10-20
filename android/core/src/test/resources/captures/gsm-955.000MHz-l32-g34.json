@@ -1,0 +1,14 @@
+{
+  "format": "int8 interleaved IQ",
+  "sampleRateHz": 10000000,
+  "samples": 524288,
+  "amp": false,
+  "basebandFilterHz": 7000000,
+  "file": "gsm-955.000MHz-l32-g34.iq8",
+  "source": "laptop, hackrf_transfer",
+  "centerHz": 955000000,
+  "lnaDb": 32,
+  "vgaDb": 34,
+  "expect": "GSM-900 downlink carriers near 956.33/956.43 MHz (~18-24 dB) and weaker ones near 955.03 and 954.47 MHz (~11 dB)",
+  "use": "narrowband carrier detection, channel snapping, neighbouring-channel separation"
+}

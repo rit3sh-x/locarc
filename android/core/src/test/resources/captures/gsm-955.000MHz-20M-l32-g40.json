@@ -1,0 +1,10 @@
+{
+  "source": "hackrf_transfer on the laptop, same HackRF One (board 4, firmware 2023.01.1)",
+  "centerHz": 955000000.0,
+  "sampleRate": 20000000,
+  "lna": 32,
+  "vga": 40,
+  "amp": false,
+  "format": "int8 IQ interleaved, 2^19 samples after 100 ms settling",
+  "expect": "narrowband GSM carriers at 20 MS/s with the 15 MHz filter"
+}

@@ -1,0 +1,96 @@
+{
+  "comment": "A sample sync call as the Receiver app sends it to POST /api/mutation (Convex JSON: numbers are floats, bytes are {\"$bytes\": base64}). The Kotlin client must serialise its request to exactly `body` (ids are placeholders the backend test fills in). The payload is wire/reading.golden.json.",
+  "body": {
+    "path": "sync:sync",
+    "format": "json",
+    "args": {
+      "sentAt": 1792411317000.0,
+      "heartbeat": {
+        "appVersion": "1.0.0",
+        "appVersionCode": 100.0,
+        "battery": 0.82,
+        "charging": true,
+        "thermal": "light",
+        "selfPause": null,
+        "hackrf": {
+          "state": "streaming",
+          "serial": "0000000000000000457863dc2b4a7a5f",
+          "boardId": 2.0,
+          "firmware": "2023.01.1",
+          "ladder": 1.0,
+          "faults": {
+            "TRANSFER_TIMEOUT": 1.0
+          },
+          "detachedSince": null
+        },
+        "clippedHz": [406125000.0],
+        "window": {
+          "mode": "short",
+          "reason": "warm"
+        },
+        "setupGaps": ["autostart", "notifications"],
+        "outbox": {
+          "depth": 2.0,
+          "oldestAgeS": 41.0,
+          "dropped": 0.0
+        },
+        "clock": {
+          "offsetMs": -1728000000.0,
+          "uncertaintyMs": 38.0
+        },
+        "gpsAccuracyM": 7.5,
+        "appliedConfigV": 3.0,
+        "rejectedConfig": null,
+        "lastError": null
+      },
+      "position": {
+        "lat": 12.9774,
+        "lng": 77.5878,
+        "accuracyM": 7.5,
+        "at": 1792411310000.0
+      },
+      "readings": [
+        {
+          "runId": "$RUN_ID",
+          "k": 0.0,
+          "appVersion": "1.0.0",
+          "lnaDb": 32.0,
+          "vgaDb": 30.0,
+          "amp": false,
+          "ppm": 1.2,
+          "windowMs": 10000.0,
+          "passes": 66.0,
+          "fixPasses": 66.0,
+          "stopReason": null,
+          "start": {
+            "lat": 12.9774,
+            "lng": 77.5878,
+            "accuracyM": 7.5,
+            "at": 1792411260000.0
+          },
+          "end": {
+            "lat": 12.9774,
+            "lng": 77.5878,
+            "accuracyM": 7.5,
+            "at": 1792411270000.0
+          },
+          "clockUncertaintyMs": 38.0,
+          "payload": {
+            "$bytes": "AQMAC/wAGvwBlfwGAwDgfgAAEAAKAHD+xP7QBwGahwAAAQAAADb9Vv3DBwAA+AIAQAYwAgCA2f0lAAI="
+          }
+        }
+      ],
+      "ackSeq": 2.0,
+      "boardSince": 0.0,
+      "fleetSince": 0.0,
+      "errors": [
+        {
+          "kind": "IllegalStateException",
+          "message": "outbox file vanished",
+          "stack": "java.lang.IllegalStateException: outbox file vanished\n\tat dev.locarc.core.Outbox.next(Outbox.kt:88)",
+          "context": "engine"
+        }
+      ]
+    }
+  }
+}

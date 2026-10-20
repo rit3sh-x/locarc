@@ -1,0 +1,39 @@
+{
+  "comment": "A sample sync reply as the HTTP API returns it (Convex JSON). The Kotlin client must parse it; `board.items` decodes with wire/board.golden.json's layout. Regenerate with WRITE_WIRE=1 bun test convex/sync.wire.test.ts.",
+  "value": {
+    "board": {
+      "at": 1792323960000,
+      "items": {
+        "$bytes": "AQMADIIAAAqCAAAFAAAAAQoC4Pz5/BwMADT7/VRFAwm2A7cA7C77/RQ/Awn8A7MAATD41WqahwAAmocAAAEABAQCQQA2/Vb9zyYQ6sUAggWgBLYAKQEQ6sUAggWgBLYAKQECfAbWajD6AgAA+AIAQAYCAAAA/wCA2f25AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "rasterHz": 12500,
+      "receivers": [
+        {
+          "id": "$RECEIVER_ID",
+          "name": "Gate 2"
+        }
+      ]
+    },
+    "fleet": {
+      "at": 1792324861003,
+      "items": [
+        {
+          "accuracyM": 7.5,
+          "lat": 12.9774,
+          "lng": 77.5878,
+          "name": "Gate 2",
+          "pinned": false,
+          "receiver": "$RECEIVER_ID"
+        }
+      ]
+    },
+    "readings": [
+      {
+        "k": 0,
+        "outcome": "stored",
+        "runId": "$RUN_ID"
+      }
+    ],
+    "serverTime": 1792324861003
+  }
+}

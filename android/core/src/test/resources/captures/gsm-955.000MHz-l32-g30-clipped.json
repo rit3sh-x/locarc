@@ -1,0 +1,14 @@
+{
+  "format": "int8 interleaved IQ",
+  "sampleRateHz": 10000000,
+  "samples": 524288,
+  "amp": false,
+  "basebandFilterHz": 7000000,
+  "file": "gsm-955.000MHz-l32-g30-clipped.iq8",
+  "source": "laptop, hackrf_transfer",
+  "centerHz": 955000000,
+  "lnaDb": 32,
+  "vgaDb": 30,
+  "expect": "8.3% of samples at full scale from a strong transient during the capture",
+  "use": "clipping guard: the step must be flagged as clipped and its power treated as a lower bound"
+}

@@ -1,0 +1,4 @@
+[test]
+# Unit and backend tests live in convex/; Playwright tests live in e2e/.
+root = "convex"
+preload = ["./convex/tests/harness.env.ts"]

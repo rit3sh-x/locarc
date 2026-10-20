@@ -1,0 +1,14 @@
+{
+  "format": "int8 interleaved IQ",
+  "sampleRateHz": 10000000,
+  "samples": 524288,
+  "amp": false,
+  "basebandFilterHz": 7000000,
+  "file": "fm-99.000MHz-l32-g30.iq8",
+  "source": "laptop, hackrf_transfer",
+  "centerHz": 99000000,
+  "lnaDb": 32,
+  "vgaDb": 30,
+  "expect": "two FM broadcast stations near 98.0 and 100.4 MHz, ~17-19 dB over the floor; max sample 126, not clipped",
+  "use": "wideband (200 kHz) signal detection and channel integration"
+}

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Run the full verification suite before allowing a push.
+exec bun run verify

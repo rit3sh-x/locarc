@@ -1,0 +1,97 @@
+name: web
+
+on:
+  pull_request:
+    paths: &paths
+      - src/**
+      - convex/**
+      - worker/**
+      - public/**
+      - scripts/**
+      - e2e/**
+      - index.html
+      - vite.config.ts
+      - playwright.config.ts
+      - tsconfig.json
+      - biome.json
+      - bunfig.toml
+      - wrangler.jsonc
+      - package.json
+      - bun.lock
+      - .github/workflows/web.yml
+  push:
+    branches: [main]
+    paths: *paths
+
+# Cancel superseded PR runs, but let main-branch runs finish.
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - run: bun run verify
+
+  journeys:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      # Cache the pinned open-source Convex backend binary used by the E2E tests.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/convex/binaries
+          key: convex-backend-${{ hashFiles('e2e/backend.ts') }}
+      # Run Playwright against the preinstalled Chrome; CI=true enables build-and-preview mode.
+      - run: bun run e2e
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [check, journeys]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      # Deploy Convex functions and build the website using the production Convex URL.
+      # Type-checking is skipped here because the check job already completed it.
+      - run: bunx convex deploy --typecheck disable --cmd 'bunx vite build' --cmd-url-env-var-name VITE_CONVEX_URL
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+          VITE_WEB_VERSION: ${{ github.sha }}
+      # Deploy the built static assets and authentication Worker to Cloudflare.
+      - run: bunx wrangler@4.147.0 deploy --var "CONVEX_SITE_URL:${CONVEX_SITE_URL}"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CONVEX_SITE_URL: ${{ vars.CONVEX_SITE_URL }}

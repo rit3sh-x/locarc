@@ -1,0 +1,41 @@
+[versions]
+agp = "9.4.1"
+kotlin = "2.4.21"
+ktlint = "14.2.0"
+coroutines = "1.11.0"
+serialization = "1.12.0"
+compose-bom = "2026.09.00"
+activity-compose = "1.13.0"
+lifecycle = "2.11.0"
+core-ktx = "1.19.1"
+play-location = "21.4.0"
+play-code-scanner = "16.1.0"
+maplibre = "13.7.1"
+convex = "0.8.0"
+jna = "5.19.1"
+junit = "6.1.3"
+
+[libraries]
+coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
+play-location = { module = "com.google.android.gms:play-services-location", version.ref = "play-location" }
+play-code-scanner = { module = "com.google.android.gms:play-services-code-scanner", version.ref = "play-code-scanner" }
+maplibre = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre" }
+convex = { module = "dev.convex:android-convexmobile", version.ref = "convex" }
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+junit = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }

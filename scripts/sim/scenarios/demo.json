@@ -1,0 +1,82 @@
+{
+  "seed": 7,
+  "n": 3.5,
+  "sigmaDb": 3,
+  "receivers": [
+    {
+      "name": "Rooftop A",
+      "lat": 12.9774,
+      "lng": 77.5878,
+      "biasDb": 0,
+      "ppmError": 1.2
+    },
+    {
+      "name": "Library",
+      "lat": 12.9791,
+      "lng": 77.6024,
+      "biasDb": 2.5,
+      "ppmError": -0.6
+    },
+    {
+      "name": "Gate 2",
+      "lat": 12.9653,
+      "lng": 77.6037,
+      "biasDb": -1.5,
+      "ppmError": 0.3
+    },
+    {
+      "name": "Hostel 5",
+      "lat": 12.9649,
+      "lng": 77.586,
+      "biasDb": 0.8,
+      "ppmError": 2.1
+    }
+  ],
+  "emitters": [
+    {
+      "name": "Gate radio",
+      "freqHz": 433925000,
+      "ptDbm": 30,
+      "lat": 12.9705,
+      "lng": 77.596
+    },
+    {
+      "name": "Maintenance PTT",
+      "freqHz": 406125000,
+      "ptDbm": 28,
+      "lat": 12.974,
+      "lng": 77.5925
+    },
+    {
+      "name": "Unknown 418",
+      "freqHz": 418150000,
+      "ptDbm": 32,
+      "lat": 12.9688,
+      "lng": 77.5995
+    },
+    {
+      "name": "Intruder 427",
+      "freqHz": 427512500,
+      "ptDbm": 33,
+      "lat": 12.9725,
+      "lng": 77.5975,
+      "active": false
+    },
+    {
+      "name": "Wi-Fi AP",
+      "freqHz": 2437000000,
+      "bandwidthHz": 20000000,
+      "ptDbm": 26,
+      "lat": 12.9712,
+      "lng": 77.5948
+    },
+    {
+      "name": "Burst bug",
+      "freqHz": 151012500,
+      "ptDbm": 24,
+      "duty": 0.2,
+      "lat": 12.9731,
+      "lng": 77.5966
+    }
+  ]
+}

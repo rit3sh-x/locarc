@@ -1,0 +1,8 @@
+dist/
+node_modules/
+.env
+.env.local
+.convex/
+test-results/
+playwright-report/
+.sim-state.json

@@ -1,0 +1,14 @@
+{
+  "format": "int8 interleaved IQ",
+  "sampleRateHz": 10000000,
+  "samples": 524288,
+  "amp": false,
+  "basebandFilterHz": 7000000,
+  "file": "phone-quiet-433.920MHz-l16-g20.iq8",
+  "source": "Redmi Note 7 via the pure-Kotlin spike driver",
+  "centerHz": 433920000,
+  "lnaDb": 16,
+  "vgaDb": 20,
+  "expect": "no detections; noise ~1.2 counts RMS (rounding-limited), samples within +-4",
+  "use": "gain-too-low case; phone driver path produces the same IQ format"
+}

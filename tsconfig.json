@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["bun"],
+    "paths": { "@/*": ["./*"] }
+  },
+  "include": ["src", "convex", "worker", "scripts", "e2e", "*.ts"],
+  "exclude": ["convex/_generated/ai"]
+}

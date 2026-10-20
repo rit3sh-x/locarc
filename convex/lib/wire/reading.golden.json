@@ -1,0 +1,58 @@
+{
+  "comment": "Reading payload v1 golden vector. The Kotlin encoder must produce `hex` from `payload`; the TypeScript codec decodes `hex` back to `payload`. Little-endian; layout in convex/lib/readingCodec.ts.",
+  "payload": {
+    "slices": [
+      {
+        "floorDbm": -101.3,
+        "clippedFix": false,
+        "clippedLater": false,
+        "anomaly": false
+      },
+      {
+        "floorDbm": -99.8,
+        "clippedFix": true,
+        "clippedLater": false,
+        "anomaly": false
+      },
+      {
+        "floorDbm": -87.5,
+        "clippedFix": false,
+        "clippedLater": true,
+        "anomaly": true
+      }
+    ],
+    "emitters": [
+      {
+        "firstCh": 32480,
+        "widthCh": 16,
+        "strongestCh": 32490,
+        "fixPowerDbm": -40,
+        "peakDbm": -31.6,
+        "passesOn": 2000,
+        "clippedFix": true,
+        "clippedLater": false
+      },
+      {
+        "firstCh": 34714,
+        "widthCh": 1,
+        "strongestCh": 34714,
+        "fixPowerDbm": -71.4,
+        "peakDbm": -68.2,
+        "passesOn": 1987,
+        "clippedFix": false,
+        "clippedLater": false
+      },
+      {
+        "firstCh": 194560,
+        "widthCh": 1600,
+        "strongestCh": 195120,
+        "fixPowerDbm": null,
+        "peakDbm": -55.1,
+        "passesOn": 37,
+        "clippedFix": false,
+        "clippedLater": true
+      }
+    ]
+  },
+  "hex": "0103000bfc001afc0195fc060300e07e000010000a0070fec4fed007019a8700000100000036fd56fdc3070000f80200400630020080d9fd250002"
+}

@@ -1,0 +1,14 @@
+{
+  "format": "int8 interleaved IQ",
+  "sampleRateHz": 10000000,
+  "samples": 524288,
+  "amp": false,
+  "basebandFilterHz": 7000000,
+  "file": "quiet-433.920MHz-l32-g34.iq8",
+  "source": "laptop, hackrf_transfer",
+  "centerHz": 433920000,
+  "lnaDb": 32,
+  "vgaDb": 34,
+  "expect": "no detections; noise 3.0 counts RMS; DC offset (-0.4, +1.4) counts shows as a spike ~25 dB over the floor without DC removal",
+  "use": "no false detections on a quiet band at working gain; DC handling"
+}

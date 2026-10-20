@@ -1,0 +1,14 @@
+// The website on Cloudflare: static assets with SPA fallback, and the Worker only for /api/auth/*.
+// CONVEX_SITE_URL comes from the deploy job, so no deployment URL lives here.
+// Security headers are in public/_headers.
+{
+  "name": "locarc",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/auth/*"]
+  },
+  "observability": { "enabled": true }
+}

@@ -1,0 +1,93 @@
+{
+  "comment": "Emitter board v1 golden vector. The Kotlin decoder must turn `hex` into `items` (times in ms since the Unix epoch); the TypeScript codec encodes `items` to `hex`. Layout in convex/lib/boardCodec.ts.",
+  "items": [
+    {
+      "ch": 33292,
+      "firstCh": 33290,
+      "widthCh": 5,
+      "heard": 0,
+      "used": 0,
+      "loudest": 1,
+      "located": false,
+      "unconfirmed": true,
+      "poorFit": false,
+      "collinear": true,
+      "receiverMoved": false,
+      "clipped": false,
+      "fixStored": false,
+      "missed": 2,
+      "powerDbm": -80,
+      "peakDbm": -77.5,
+      "occupancy": 0.31,
+      "position": {
+        "lat": -33.8688,
+        "lng": 151.2093,
+        "radiusM": 950,
+        "ptDbm": 18.3
+      },
+      "lastStored": {
+        "lat": -33.8701,
+        "lng": 151.2077,
+        "radiusM": 1020,
+        "ptDbm": 17.9,
+        "occupancyClass": 1,
+        "at": 1792407600000
+      }
+    },
+    {
+      "ch": 34714,
+      "firstCh": 34714,
+      "widthCh": 1,
+      "heard": 4,
+      "used": 4,
+      "loudest": 2,
+      "located": true,
+      "unconfirmed": false,
+      "poorFit": false,
+      "collinear": false,
+      "receiverMoved": false,
+      "clipped": false,
+      "fixStored": true,
+      "missed": 0,
+      "powerDbm": -71.4,
+      "peakDbm": -68.2,
+      "occupancy": 0.9935,
+      "position": {
+        "lat": 12.970512,
+        "lng": 77.596034,
+        "radiusM": 182,
+        "ptDbm": 29.7
+      },
+      "lastStored": {
+        "lat": 12.970512,
+        "lng": 77.596034,
+        "radiusM": 182,
+        "ptDbm": 29.7,
+        "occupancyClass": 2,
+        "at": 1792411260000
+      }
+    },
+    {
+      "ch": 195120,
+      "firstCh": 194560,
+      "widthCh": 1600,
+      "heard": 2,
+      "used": 0,
+      "loudest": 0,
+      "located": false,
+      "unconfirmed": false,
+      "poorFit": false,
+      "collinear": false,
+      "receiverMoved": false,
+      "clipped": false,
+      "fixStored": false,
+      "missed": null,
+      "powerDbm": null,
+      "peakDbm": -55.1,
+      "occupancy": 0.0185,
+      "position": null,
+      "lastStored": null
+    }
+  ],
+  "hex": "0103000c8200000a82000005000000010a02e0fcf9fc1c0c0034fbfd54450309b603b700ec2efbfd143f0309fc03b3000130f8d56a9a8700009a8700000100040402410036fd56fdcf2610eac5008205a004b600290110eac5008205a004b6002901027c06d66a30fa020000f80200400602000000ff0080d9fdb9000000000000000000000000000000000000000000000000000000000000"
+}

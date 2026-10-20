@@ -1,0 +1,46 @@
+{
+  "name": "locarc",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build:android": "bun scripts/build-android.ts",
+    "setup": "bun scripts/setup.ts",
+    "dev": "convex dev --start vite",
+    "typecheck": "bun check",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "verify": "biome check . && bun check && bun test",
+    "e2e": "playwright test",
+    "sim": "bun scripts/sim.ts",
+    "publish:release": "bun scripts/publish-release.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@playwright/test": "1.64.1",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/bun": "^1.4.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "convex-test": "0.0.62",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "vite": "8.3.4"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.9.0",
+    "@convex-dev/better-auth": "0.12.5",
+    "@tanstack/react-router": "1.170.45",
+    "better-auth": "~1.6.33",
+    "class-variance-authority": "0.7.1",
+    "cn": "0.5.0",
+    "convex": "1.47.0",
+    "jose": "6.2.12",
+    "lucide-react": "1.59.0",
+    "maplibre-gl": "6.14.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "uqr": "0.1.3",
+    "zod": "4.6.7"
+  }
+}
